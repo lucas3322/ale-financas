@@ -121,7 +121,9 @@ function TransactionForm({ draft, onDone }: { draft?: TxDraft; onDone: () => voi
     if (!isPercent || !monthQ.data) return null;
     const pct = Number(f.percent.replace(",", "."));
     if (!Number.isFinite(pct) || pct <= 0) return null;
-    const incomes = monthQ.data.items.filter((o) => o.type === "INCOME" && !o.skipped);
+    // Mesmo critério do servidor: no mês atual e nos passados, só o que já foi recebido.
+    const receivedOnly = previewMonth! <= today().slice(0, 7);
+    const incomes = monthQ.data.items.filter((o) => o.type === "INCOME" && !o.skipped && (!receivedOnly || o.paid));
     const mine = (o: Occ) => (f.personId ? o.person?.id === f.personId : true);
     const sum = (xs: Occ[]) => xs.reduce((acc, o) => acc + o.amountCents, 0);
     const base =
@@ -266,9 +268,9 @@ function TransactionForm({ draft, onDone }: { draft?: TxDraft; onDone: () => voi
           )}
           <p className="col-span-2 -mt-1 rounded-xl bg-brand-50 px-3 py-2 text-xs text-brand-800">
             {percentPreview
-              ? <>Em {monthLabel(f.date.slice(0, 7), { year: false })}: <b>{f.percent}% de {money(percentPreview.base)} = {money(percentPreview.value)}</b>. </>
+              ? <>Em {monthLabel(f.date.slice(0, 7), { year: false })}: <b>{f.percent}% de {money(percentPreview.base)} = {money(percentPreview.value)}</b>{previewMonth! <= today().slice(0, 7) ? " (só o que já foi recebido)" : ""}. </>
               : null}
-            Recalculado todo mês: se o salário aumentar, o valor acompanha.
+            Atualiza sozinho: ao marcar um salário como recebido, o valor sobe junto.
             {f.percentBase === "PERSON_INCOME" || f.percentBase === "GROUP_INCOME" ? " Atenção: “todas as entradas” inclui empréstimos recebidos e rendas extras." : ""}
           </p>
         </div>

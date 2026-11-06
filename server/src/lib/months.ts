@@ -39,6 +39,11 @@ export function todayBR(): string {
   return new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" }).format(new Date());
 }
 
+/** Mês atual no fuso do Brasil (o servidor roda em UTC: dia 31 às 22h ainda é o mês corrente aqui). */
+export function currentMonthIdxBR(): number {
+  return parseMonth(todayBR().slice(0, 7));
+}
+
 /** "YYYY-MM-DD" de um dia dentro de um mês (limitado ao último dia: dia 31 em fevereiro vira 28/29). */
 export function dateInMonth(idx: number, day: number): string {
   const y = Math.floor(idx / 12);

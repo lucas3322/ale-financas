@@ -1,5 +1,6 @@
 import { prisma } from "./db.js";
 import { buildOccurrences, type Occurrence, type TxWithRefs } from "./engine.js";
+import { currentMonthIdxBR } from "./months.js";
 
 export async function loadGroup(groupId: string) {
   const [txs, states, cards, members] = await Promise.all([
@@ -17,7 +18,8 @@ export async function loadGroup(groupId: string) {
 export type GroupData = Awaited<ReturnType<typeof loadGroup>>;
 
 export function occurrencesFor(data: GroupData, from: number, to: number, includeSkipped = false) {
-  return buildOccurrences(data.txs, data.states, from, to, { includeSkipped });
+  // Percentuais do mês atual e dos passados usam só entradas recebidas; os futuros, o previsto.
+  return buildOccurrences(data.txs, data.states, from, to, { includeSkipped, receivedOnlyThrough: currentMonthIdxBR() });
 }
 
 export function serializeOcc(o: Occurrence) {

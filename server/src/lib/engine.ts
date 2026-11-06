@@ -85,7 +85,14 @@ export function buildOccurrences(
   states: TxOccurrence[],
   from: number,
   to: number,
-  opts: { includeSkipped?: boolean } = {},
+  opts: {
+    includeSkipped?: boolean;
+    /**
+     * Até este mês (inclusive), percentuais usam só entradas JÁ RECEBIDAS (marcadas):
+     * o dízimo acompanha o salário quando ele é recebido. Meses depois disso usam o previsto.
+     */
+    receivedOnlyThrough?: number;
+  } = {},
 ): Occurrence[] {
   const stateMap = new Map(states.map((s) => [`${s.transactionId}|${s.month}`, s]));
   const out: Occurrence[] = [];
@@ -118,6 +125,7 @@ export function buildOccurrences(
   const incomeByMonth = new Map<number, Agg>();
   for (const o of out) {
     if (o.tx.type !== "INCOME" || o.skipped) continue;
+    if (opts.receivedOnlyThrough != null && o.monthIdx <= opts.receivedOnlyThrough && !o.paid) continue;
     let agg = incomeByMonth.get(o.monthIdx);
     if (!agg) incomeByMonth.set(o.monthIdx, (agg = { all: 0, salary: 0, byPerson: new Map(), byTx: new Map() }));
     const v = o.amountCents;
@@ -144,11 +152,11 @@ export function buildOccurrences(
 }
 
 /**
- * Já aconteceu? Conta no "saldo até hoje" quem já foi pago/recebido
- * ou cuja data já chegou. Pagamento agendado para o futuro só entra quando a data chegar.
+ * Conta no saldo realizado? Só o que está marcado como pago/recebido — a data não basta:
+ * conta vencida e não marcada continua fora do saldo (aparece como "vencido").
  */
-export function isRealized(o: Pick<Occurrence, "paid" | "dueDate">, today: string) {
-  return o.paid || o.dueDate <= today;
+export function isRealized(o: Pick<Occurrence, "paid">) {
+  return o.paid;
 }
 
 /** Valor-base do percentual num mês. Sem pessoa definida, "da pessoa" vira "do grupo". */

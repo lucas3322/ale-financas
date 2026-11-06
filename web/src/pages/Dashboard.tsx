@@ -65,30 +65,29 @@ export default function Dashboard() {
               return (
                 <>
                   <p className="text-sm font-medium text-white/70">
-                    {phase === "current" ? `Saldo do mês até hoje (${todayLabel})` : phase === "past" ? `Sobra de ${monthLabel(d.month, { year: false })}` : `Sobra prevista em ${monthLabel(d.month, { year: false })}`}
+                    {phase === "current" ? `Saldo de hoje (${todayLabel})` : phase === "past" ? `Saldo de ${monthLabel(d.month, { year: false })}` : `Sobra prevista em ${monthLabel(d.month, { year: false })}`}
                   </p>
                   <p className={cx("mt-1 text-4xl font-extrabold tracking-tight tabular sm:text-5xl", main < 0 && "text-rose-200")}>
                     <CountUp value={main} format={money} />
                   </p>
-                  {phase === "current" && (
+                  {phase !== "future" && (
                     <p className="mt-1 text-sm text-white/75">
-                      Previsto no fim do mês: <b className="tabular text-white">{money(t.netCents)}</b>
-                      {t.scheduledExpenseCents > 0 && <> · {money(t.scheduledExpenseCents)} em pagamentos agendados</>}
+                      Conta só o que está marcado como pago/recebido · Previsto no mês: <b className="tabular text-white">{money(t.netCents)}</b>
                     </p>
                   )}
                   <div className="mt-5 grid grid-cols-2 gap-3">
                     <div className="rounded-2xl bg-white/10 p-3 backdrop-blur-sm">
                       <p className="flex items-center gap-1 text-xs text-white/70"><ArrowUpRight size={14} /> Entradas</p>
-                      <p className="mt-0.5 text-lg font-bold tabular">{money(phase === "current" ? t.realizedIncomeCents : t.incomeCents)}</p>
+                      <p className="mt-0.5 text-lg font-bold tabular">{money(phase !== "future" ? t.realizedIncomeCents : t.incomeCents)}</p>
                       <p className="text-[11px] text-white/60">
-                        {phase === "current" ? (t.scheduledIncomeCents ? `+ ${money(t.scheduledIncomeCents)} a receber` : "tudo recebido") : `${money(t.receivedCents)} marcado como recebido`}
+                        {phase !== "future" ? (t.scheduledIncomeCents ? `+ ${money(t.scheduledIncomeCents)} a receber` : "tudo recebido") : "previsto"}
                       </p>
                     </div>
                     <div className="rounded-2xl bg-white/10 p-3 backdrop-blur-sm">
                       <p className="flex items-center gap-1 text-xs text-white/70"><ArrowDownRight size={14} /> Saídas</p>
-                      <p className="mt-0.5 text-lg font-bold tabular">{money(phase === "current" ? t.realizedExpenseCents : t.expenseCents)}</p>
+                      <p className="mt-0.5 text-lg font-bold tabular">{money(phase !== "future" ? t.realizedExpenseCents : t.expenseCents)}</p>
                       <p className="text-[11px] text-white/60">
-                        {phase === "current" ? (t.scheduledExpenseCents ? `+ ${money(t.scheduledExpenseCents)} agendado` : "nada agendado") : `${money(t.pendingCents)} a pagar`}
+                        {phase !== "future" ? (t.scheduledExpenseCents ? `+ ${money(t.scheduledExpenseCents)} a pagar` : "tudo pago") : "previsto"}
                       </p>
                     </div>
                   </div>

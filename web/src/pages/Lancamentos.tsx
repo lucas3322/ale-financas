@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { Check, ChevronRight, MoreVertical, Pencil, Plus, Repeat, Search, SkipForward, Undo2, Wallet } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Empty, Field, MenuItem, Modal, MonthSwitcher, MoneyInput, PageLoading, Popover, Segmented, cx, useMonth } from "../components/ui";
@@ -42,14 +42,20 @@ function MonthView() {
   const [adjust, setAdjust] = useState<Occ | null>(null);
   const [invoice, setInvoice] = useState<{ cardId: string; month: string } | null>(null);
   const payInvoice = useAction(
-    (p: { cardId: string; paid: boolean }) => api.post(`/cards/${p.cardId}/pay-invoice`, { month, paid: p.paid }),
+    (p: { cardId: string; paid: boolean }) => {
+      const ids = (q.data?.items ?? []).filter((o) => o.card?.id === p.cardId && o.paymentMethod === "CARD").map((o) => o.transactionId);
+      applyPaid(qc, month, ids, p.paid);
+      return api.post(`/cards/${p.cardId}/pay-invoice`, { month, paid: p.paid });
+    },
     "Fatura atualizada",
   );
   const q = useQuery({ queryKey: ["month", month], queryFn: () => api.get<MonthData>(`/months/${month}`) });
+  const qc = useQueryClient();
 
-  const setOcc = useAction((p: { o: Occ; patch: Partial<Pick<Occ, "paid" | "skipped">> & { amountCents?: number | null } }) =>
-    api.put("/occurrences", { transactionId: p.o.transactionId, month: p.o.month, ...p.patch }),
-  );
+  const setOcc = useAction((p: { o: Occ; patch: Partial<Pick<Occ, "paid" | "skipped">> & { amountCents?: number | null } }) => {
+    if (p.patch.paid !== undefined) applyPaid(qc, month, [p.o.transactionId], p.patch.paid);
+    return api.put("/occurrences", { transactionId: p.o.transactionId, month: p.o.month, ...p.patch });
+  });
 
   const items = useMemo(() => {
     const term = filter.q.trim().toLowerCase();
@@ -70,20 +76,22 @@ function MonthView() {
   return (
     <>
       <div className="mb-4 grid grid-cols-3 gap-2 sm:gap-3">
-        {month === t.today.slice(0, 7) ? (
+        {month <= t.today.slice(0, 7) ? (
+          // Mês atual ou passado: conta só o que está marcado (recebido/pago). Marcar e desmarcar atualiza na hora.
           <>
-            <Stat label="Entradas até hoje" value={t.realizedIncomeCents} tone="text-emerald-600"
-              sub={t.scheduledIncomeCents ? `+ ${money(t.scheduledIncomeCents)} a receber` : undefined} />
-            <Stat label="Saídas até hoje" value={t.realizedExpenseCents} tone="text-rose-600"
-              sub={t.scheduledExpenseCents ? `+ ${money(t.scheduledExpenseCents)} agendado` : undefined} />
-            <Stat label="Saldo de hoje" value={t.realizedNetCents} tone={t.realizedNetCents < 0 ? "text-rose-600" : "text-brand-700"}
+            <Stat label="Recebido" value={t.realizedIncomeCents} tone="text-emerald-600"
+              sub={t.scheduledIncomeCents ? `+ ${money(t.scheduledIncomeCents)} a receber` : "tudo recebido"} />
+            <Stat label="Pago" value={t.realizedExpenseCents} tone="text-rose-600"
+              sub={t.scheduledExpenseCents ? `+ ${money(t.scheduledExpenseCents)} a pagar` : "tudo pago"} />
+            <Stat label={month === t.today.slice(0, 7) ? "Saldo de hoje" : "Saldo do mês"} value={t.realizedNetCents}
+              tone={t.realizedNetCents < 0 ? "text-rose-600" : "text-brand-700"}
               sub={`Previsto no mês: ${money(t.netCents)}`} />
           </>
         ) : (
           <>
-            <Stat label="Entradas" value={t.incomeCents} tone="text-emerald-600" />
-            <Stat label="Saídas" value={t.expenseCents} tone="text-rose-600" />
-            <Stat label={month > t.today.slice(0, 7) ? "Sobra prevista" : "Sobra"} value={t.netCents} tone={t.netCents < 0 ? "text-rose-600" : "text-brand-700"} />
+            <Stat label="Entradas previstas" value={t.incomeCents} tone="text-emerald-600" />
+            <Stat label="Saídas previstas" value={t.expenseCents} tone="text-rose-600" />
+            <Stat label="Sobra prevista" value={t.netCents} tone={t.netCents < 0 ? "text-rose-600" : "text-brand-700"} />
           </>
         )}
       </div>
@@ -147,6 +155,40 @@ function MonthView() {
       )}
     </>
   );
+}
+
+/**
+ * Atualização otimista: marca/desmarca na tela e ajusta os totais "realizados" na hora.
+ * Em seguida a lista é recarregada do servidor (que recalcula, por exemplo, o dízimo sobre o salário recebido).
+ */
+function applyPaid(qc: QueryClient, month: string, ids: string[], paid: boolean) {
+  qc.setQueryData<MonthData>(["month", month], (old) => {
+    if (!old) return old;
+    const set = new Set(ids);
+    let inc = 0, exp = 0;
+    const items = old.items.map((o) => {
+      if (!set.has(o.transactionId) || o.paid === paid || o.skipped) return o;
+      const d = paid ? o.amountCents : -o.amountCents;
+      if (o.type === "INCOME") inc += d; else exp += d;
+      return { ...o, paid };
+    });
+    const t = old.totals;
+    return {
+      ...old,
+      items,
+      totals: {
+        ...t,
+        realizedIncomeCents: t.realizedIncomeCents + inc,
+        receivedCents: t.receivedCents + inc,
+        scheduledIncomeCents: t.scheduledIncomeCents - inc,
+        realizedExpenseCents: t.realizedExpenseCents + exp,
+        paidCents: t.paidCents + exp,
+        pendingCents: t.pendingCents - exp,
+        scheduledExpenseCents: t.scheduledExpenseCents - exp,
+        realizedNetCents: t.realizedNetCents + inc - exp,
+      },
+    };
+  });
 }
 
 function Stat({ label, value, tone, sub }: { label: string; value: number; tone: string; sub?: string }) {

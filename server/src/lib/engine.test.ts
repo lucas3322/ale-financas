@@ -54,13 +54,12 @@ test("compra de novembro num cartão que fecha 28 e vence 10 aparece na próxima
   assert.deepEqual(u.nextInvoices, [{ month: "2026-12", cents: 54992, count: 1 }]);
 });
 
-test("pagamento agendado só conta no saldo até hoje quando a data chega (ou se for marcado pago)", () => {
+test("saldo realizado conta só o que foi marcado como pago/recebido", () => {
   const conta = tx({ amountCents: 30000, date: new Date("2026-11-20T00:00:00Z") });
   const [o] = buildOccurrences([conta], [], parseMonth("2026-11"), parseMonth("2026-11"));
   assert.equal(o.dueDate, "2026-11-20");
-  assert.equal(isRealized(o, "2026-11-10"), false); // agendado
-  assert.equal(isRealized(o, "2026-11-20"), true); // chegou o dia
-  assert.equal(isRealized({ ...o, paid: true }, "2026-11-10"), true); // pagou adiantado
+  assert.equal(isRealized(o), false); // não marcado: não conta, mesmo com a data passando
+  assert.equal(isRealized({ ...o, paid: true }), true); // marcado como pago: conta
 });
 
 test("vencimento dia 31 em fevereiro cai no último dia do mês", () => {
@@ -109,4 +108,17 @@ test("dízimo vinculado ao salário acompanha o aumento feito com 'a partir dest
   const diz = tx({ personId: "lucas", amountMode: "PERCENT", percentBp: 1000, percentBase: "TRANSACTION", percentBaseTxId: antigo.id, recurrence: "MONTHLY", date: d });
   const occs = buildOccurrences([antigo, novo, diz], [], parseMonth("2026-11"), parseMonth("2027-02"));
   assert.deepEqual(occs.filter((o) => o.transactionId === diz.id).map((o) => o.amountCents), [115000, 115000, 200000, 200000]);
+});
+
+test("dízimo acompanha o salário recebido: no mês atual só conta o que foi marcado", () => {
+  const nov = parseMonth("2026-11");
+  const sal5 = tx({ type: "INCOME", personId: "lucas", amountCents: 1150000, date: new Date("2026-11-05T00:00:00Z"), isSalary: true, paymentMethod: null });
+  const sal30 = tx({ type: "INCOME", personId: "lucas", amountCents: 1500000, date: new Date("2026-11-30T00:00:00Z"), isSalary: true, recurrence: "MONTHLY", paymentMethod: null });
+  const diz = tx({ personId: "lucas", amountMode: "PERCENT", percentBp: 1000, percentBase: "PERSON_SALARY", recurrence: "MONTHLY", date: new Date("2026-11-05T00:00:00Z") });
+  const recebido = (txId: string, month: string) => ({ id: txId + month, transactionId: txId, month, paid: true, paidAt: null, amountCents: null, skipped: false });
+  const dizimo = (states: ReturnType<typeof recebido>[]) =>
+    buildOccurrences([sal5, sal30, diz], states, nov, nov + 1, { receivedOnlyThrough: nov }).filter((o) => o.transactionId === diz.id).map((o) => o.amountCents);
+  assert.deepEqual(dizimo([recebido(sal5.id, "2026-11")]), [115000, 150000]); // nov: só o recebido; dez: previsto
+  assert.deepEqual(dizimo([recebido(sal5.id, "2026-11"), recebido(sal30.id, "2026-11")]), [265000, 150000]); // recebeu o do dia 30
+  assert.deepEqual(dizimo([]), [0, 150000]); // nada recebido ainda no mês
 });
