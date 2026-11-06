@@ -10,10 +10,10 @@ import { CSS } from "@dnd-kit/utilities";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Check, Copy, GripVertical, LayoutGrid, MoreHorizontal, Pencil, Plus, Trash2 } from "lucide-react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { blankWidget, WidgetBuilder } from "../components/dash/WidgetBuilder";
 import { CardsWidget, Skeleton, UpcomingWidget, WidgetChart } from "../components/dash/WidgetView";
-import { Empty, Field, Modal, MonthSwitcher, PageLoading, cx, useMonth, useToast } from "../components/ui";
+import { Empty, Field, MenuItem, Modal, MonthSwitcher, PageLoading, Popover, cx, useMonth, useToast } from "../components/ui";
 import {
   SIZE_CLASS, SIZE_LABEL, TEMPLATES, TONE_CLASS, newId, toneFor, vizInfo,
   type DashboardDef, type QueryResult, type Size, type Widget,
@@ -370,63 +370,31 @@ function WidgetBody({ w, month, result, loading }: { w: Widget; month: string; r
 function WidgetMenu({ w, onEdit, onRemove, onDuplicate, onResize }: {
   w: Widget; onEdit: (w: Widget) => void; onRemove: (w: Widget) => void; onDuplicate: (w: Widget) => void; onResize: (w: Widget, s: Size) => void;
 }) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (!open) return;
-    const close = (e: PointerEvent) => !ref.current?.contains(e.target as Node) && setOpen(false);
-    const esc = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
-    document.addEventListener("pointerdown", close);
-    document.addEventListener("keydown", esc);
-    return () => {
-      document.removeEventListener("pointerdown", close);
-      document.removeEventListener("keydown", esc);
-    };
-  }, [open]);
   return (
-    <div className="relative" ref={ref}>
-      <button className="btn-ghost !p-1.5" onClick={() => setOpen((v) => !v)} aria-label={`Opções de ${w.title}`} aria-expanded={open}>
-        <MoreHorizontal size={16} />
-      </button>
-      <AnimatePresence>
-        {open && (
-          <motion.div
-            initial={{ opacity: 0, transform: "scale(0.96) translateY(-4px)" }}
-            animate={{ opacity: 1, transform: "scale(1) translateY(0px)" }}
-            exit={{ opacity: 0, transform: "scale(0.96) translateY(-4px)" }}
-            transition={{ duration: 0.16, ease: [0.23, 1, 0.32, 1] }}
-            style={{ transformOrigin: "top right" }}
-            className="absolute right-0 top-full z-30 mt-1 w-52 rounded-xl border border-brand-950/10 bg-white p-1 shadow-xl"
-          >
-            <MenuBtn icon={Pencil} label="Editar widget" onClick={() => { setOpen(false); onEdit(w); }} />
-            <MenuBtn icon={Copy} label="Duplicar" onClick={() => { setOpen(false); onDuplicate(w); }} />
-            <div className="px-3 pb-1 pt-2">
-              <p className="mb-1.5 text-[11px] font-semibold text-ink-faint">Largura</p>
-              <div className="grid grid-cols-4 gap-1">
-                {(Object.keys(SIZE_LABEL) as Size[]).map((s) => (
-                  <button key={s} onClick={() => onResize(w, s)} aria-pressed={w.size === s}
-                    className={cx("rounded-lg py-1 text-xs font-bold transition-colors duration-150",
-                      w.size === s ? "bg-brand-600 text-white" : "bg-brand-950/[0.05] text-ink-soft hover:bg-brand-100")}>
-                    {SIZE_LABEL[s]}
-                  </button>
-                ))}
-              </div>
+    <Popover className="w-52" trigger={(p) => (
+      <button {...p} className="btn-ghost !p-1.5" aria-label={`Opções de ${w.title}`}><MoreHorizontal size={16} /></button>
+    )}>
+      {(close) => (
+        <>
+          <MenuItem icon={Pencil} label="Editar widget" onClick={() => { close(); onEdit(w); }} />
+          <MenuItem icon={Copy} label="Duplicar" onClick={() => { close(); onDuplicate(w); }} />
+          <div className="px-3 pb-1 pt-2">
+            <p className="mb-1.5 text-[11px] font-semibold text-ink-faint">Largura</p>
+            <div className="grid grid-cols-4 gap-1">
+              {(Object.keys(SIZE_LABEL) as Size[]).map((s) => (
+                <button key={s} type="button" onClick={() => onResize(w, s)} aria-pressed={w.size === s} aria-label={`Largura ${SIZE_LABEL[s]}`}
+                  className={cx("rounded-lg py-1 text-xs font-bold transition-colors duration-150",
+                    w.size === s ? "bg-brand-600 text-white" : "bg-brand-950/[0.05] text-ink-soft hover:bg-brand-100")}>
+                  {SIZE_LABEL[s]}
+                </button>
+              ))}
             </div>
-            <div className="my-1 h-px bg-brand-950/[0.06]" />
-            <MenuBtn icon={Trash2} label="Remover" danger onClick={() => { setOpen(false); onRemove(w); }} />
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
-  );
-}
-
-function MenuBtn({ icon: Icon, label, onClick, danger }: { icon: typeof Pencil; label: string; onClick: () => void; danger?: boolean }) {
-  return (
-    <button onClick={onClick} className={cx("flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm transition-colors duration-150",
-      danger ? "text-rose-600 hover:bg-rose-50" : "hover:bg-brand-50")}>
-      <Icon size={15} className={danger ? "" : "text-ink-faint"} /> {label}
-    </button>
+          </div>
+          <div className="my-1 h-px bg-brand-950/[0.06]" />
+          <MenuItem icon={Trash2} label="Remover" danger onClick={() => { close(); onRemove(w); }} />
+        </>
+      )}
+    </Popover>
   );
 }
 
@@ -547,7 +515,7 @@ function DashModal({ mode, dash, onClose, onDone }: { mode: "create" | "edit"; d
               <Trash2 size={15} /> Excluir
             </button>
           )}
-          <button className="btn-primary sm:min-w-[140px]" disabled={save.isPending}>
+          <button type="submit" className="btn-primary sm:min-w-[140px]" disabled={save.isPending}>
             {save.isPending ? "Salvando…" : mode === "edit" ? "Salvar" : "Criar"}
           </button>
         </div>

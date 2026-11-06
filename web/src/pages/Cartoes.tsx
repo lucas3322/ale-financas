@@ -239,7 +239,7 @@ function CardModal({ card, onClose }: { card: Partial<Card>; onClose: () => void
               </button>
             </div>
           )}
-          <button className="btn-primary sm:min-w-[140px]" disabled={save.isPending}>{save.isPending ? "Salvando…" : isEdit ? "Salvar" : "Cadastrar"}</button>
+          <button type="submit" className="btn-primary sm:min-w-[140px]" disabled={save.isPending}>{save.isPending ? "Salvando…" : isEdit ? "Salvar" : "Cadastrar"}</button>
         </div>
       </form>
     </Modal>

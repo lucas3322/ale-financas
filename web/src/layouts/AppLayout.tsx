@@ -5,7 +5,7 @@ import {
 import { Suspense, useState } from "react";
 import { NavLink, Outlet, useLocation, useNavigate, useOutletContext } from "react-router-dom";
 import { TransactionModal, type TxDraft } from "../components/TransactionForm";
-import { Avatar, PageLoading, cx, useMonth } from "../components/ui";
+import { Avatar, MenuItem, PageLoading, Popover, cx, useMonth } from "../components/ui";
 import { api } from "../lib/api";
 import { currentMonth, firstName } from "../lib/format";
 import { useMe } from "../lib/queries";
@@ -40,7 +40,6 @@ export default function AppLayout() {
   const nav = useNavigate();
   const { pathname } = useLocation();
   const [tx, setTx] = useState<{ open: boolean; draft?: TxDraft }>({ open: false });
-  const [groupMenu, setGroupMenu] = useState(false);
   const { setMonth } = useMonth();
 
   const logout = async () => {
@@ -51,7 +50,6 @@ export default function AppLayout() {
   };
   const switchGroup = async (groupId: string) => {
     await api.post("/groups/switch", { groupId });
-    setGroupMenu(false);
     await qc.resetQueries();
   };
 
@@ -64,31 +62,28 @@ export default function AppLayout() {
       <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 flex-col border-r border-brand-950/[0.06] bg-white lg:flex">
         <div className="px-5 pt-6 pb-4"><Logo /></div>
 
-        <div className="relative px-3">
-          <button
-            onClick={() => setGroupMenu((v) => !v)}
-            className="flex w-full items-center gap-2 rounded-xl border border-brand-950/[0.08] px-3 py-2 text-left hover:border-brand-300"
-          >
-            <div className="min-w-0 flex-1">
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-ink-faint">Grupo</p>
-              <p className="truncate text-sm font-bold">{me.activeGroup?.name}</p>
-            </div>
-            <ChevronsUpDown size={14} className="text-ink-faint" />
-          </button>
-          {groupMenu && (
-            <div className="absolute inset-x-3 top-full z-10 mt-1 rounded-xl border border-brand-950/10 bg-white p-1 shadow-xl">
-              {me.groups.map((g) => (
-                <button key={g.id} onClick={() => switchGroup(g.id)}
-                  className={cx("block w-full truncate rounded-lg px-3 py-2 text-left text-sm hover:bg-brand-50",
-                    g.id === me.activeGroup?.id && "font-bold text-brand-700")}>
-                  {g.name}
-                </button>
-              ))}
-              <NavLink to="/app/grupo" onClick={() => setGroupMenu(false)} className="block rounded-lg px-3 py-2 text-sm text-brand-700 hover:bg-brand-50">
-                + Entrar com convite
-              </NavLink>
-            </div>
-          )}
+        <div className="px-3">
+          <Popover align="stretch" className="" trigger={(p) => (
+            <button {...p} aria-label="Trocar de grupo"
+              className="flex w-full items-center gap-2 rounded-xl border border-brand-950/[0.08] px-3 py-2 text-left transition-colors duration-150 hover:border-brand-300">
+              <div className="min-w-0 flex-1">
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-ink-faint">Grupo</p>
+                <p className="truncate text-sm font-bold">{me.activeGroup?.name}</p>
+              </div>
+              <ChevronsUpDown size={14} className="text-ink-faint" />
+            </button>
+          )}>
+            {(close) => (
+              <>
+                {me.groups.map((g) => (
+                  <MenuItem key={g.id}
+                    label={<span className={cx("truncate", g.id === me.activeGroup?.id && "font-bold text-brand-700")}>{g.id === me.activeGroup?.id ? "✓ " : ""}{g.name}</span>}
+                    onClick={() => { close(); if (g.id !== me.activeGroup?.id) switchGroup(g.id); }} />
+                ))}
+                <MenuItem label={<span className="text-brand-700">+ Entrar com convite ou criar grupo</span>} onClick={() => { close(); nav("/app/grupo"); }} />
+              </>
+            )}
+          </Popover>
         </div>
 
         <nav className="mt-4 flex-1 space-y-0.5 px-3">

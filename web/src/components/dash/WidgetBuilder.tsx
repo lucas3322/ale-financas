@@ -246,7 +246,7 @@ function Builder({ initial, onClose, onSave }: { initial: Widget; onClose: () =>
 
         <div className="flex flex-col-reverse gap-2 border-t border-brand-950/[0.06] pt-4 sm:flex-row sm:justify-end">
           <button type="button" className="btn-ghost" onClick={onClose}>Cancelar</button>
-          <button className="btn-primary sm:min-w-[160px]">{isNew ? "Adicionar ao dashboard" : "Salvar widget"}</button>
+          <button type="submit" className="btn-primary sm:min-w-[160px]">{isNew ? "Adicionar ao dashboard" : "Salvar widget"}</button>
         </div>
       </div>
     </form>

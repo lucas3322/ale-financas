@@ -1,5 +1,6 @@
-import { ChevronLeft, ChevronRight, X } from "lucide-react";
-import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
+import { ChevronLeft, ChevronRight, X, type LucideIcon } from "lucide-react";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { addMonths, centsToInput, currentMonth, monthTitle, parseMoney } from "../lib/format";
 
 export function cx(...c: (string | false | null | undefined)[]) {
@@ -221,5 +222,86 @@ export function Avatar({ name, size = 32 }: { name: string; size?: number }) {
       style={{ width: size, height: size, fontSize: size * 0.38 }}>
       {initials}
     </div>
+  );
+}
+
+/* ---------- Popover / menu ----------
+ * Único componente para menus suspensos: fecha ao clicar fora ou com Esc (devolvendo o foco ao botão),
+ * abre para cima quando não há espaço embaixo e nasce do ponto do botão que o abriu.
+ */
+export function Popover({ trigger, children, align = "right", className = "w-56" }: {
+  trigger: (p: { onClick: () => void; "aria-expanded": boolean; "aria-haspopup": "menu"; ref: React.Ref<HTMLButtonElement> }) => ReactNode;
+  children: (close: () => void) => ReactNode;
+  align?: "left" | "right" | "stretch";
+  className?: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const [up, setUp] = useState(false);
+  const wrap = useRef<HTMLDivElement>(null);
+  const btn = useRef<HTMLButtonElement>(null);
+  const reduce = useReducedMotion();
+
+  const close = useCallback((focus = false) => {
+    setOpen(false);
+    if (focus) btn.current?.focus();
+  }, []);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: PointerEvent) => !wrap.current?.contains(e.target as Node) && close();
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && close(true);
+    document.addEventListener("pointerdown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("pointerdown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open, close]);
+
+  const toggle = () => {
+    if (!open && btn.current) {
+      const r = btn.current.getBoundingClientRect();
+      // Abre para cima se faltar espaço embaixo (ex.: último item da lista, barra inferior do celular).
+      setUp(window.innerHeight - r.bottom < 280 && r.top > 280);
+    }
+    setOpen((o) => !o);
+  };
+
+  const pos = align === "stretch" ? "inset-x-0" : align === "right" ? "right-0" : "left-0";
+  const origin = `${up ? "bottom" : "top"} ${align === "left" ? "left" : align === "right" ? "right" : "center"}`;
+  const from = reduce ? { opacity: 0 } : { opacity: 0, transform: `scale(0.96) translateY(${up ? 4 : -4}px)` };
+
+  return (
+    <div ref={wrap} className="relative">
+      {trigger({ onClick: toggle, "aria-expanded": open, "aria-haspopup": "menu", ref: btn })}
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            role="menu"
+            initial={from}
+            animate={{ opacity: 1, transform: "scale(1) translateY(0px)" }}
+            exit={from}
+            transition={{ duration: 0.16, ease: [0.23, 1, 0.32, 1] }}
+            style={{ transformOrigin: origin }}
+            className={cx("absolute z-40 rounded-xl border border-brand-950/10 bg-white p-1 shadow-xl", pos, up ? "bottom-full mb-1" : "top-full mt-1", className)}
+          >
+            {children(() => close(true))}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+export function MenuItem({ icon: Icon, label, onClick, danger }: {
+  icon?: LucideIcon; label: ReactNode; onClick: () => void; danger?: boolean;
+}) {
+  return (
+    <button role="menuitem" type="button" onClick={onClick}
+      className={cx("flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm transition-colors duration-150",
+        danger ? "text-rose-600 hover:bg-rose-50" : "hover:bg-brand-50")}>
+      {Icon && <Icon size={15} className={danger ? "" : "text-ink-faint"} />}
+      {label}
+    </button>
   );
 }

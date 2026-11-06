@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { Check, MoreVertical, Pencil, Plus, Repeat, Search, SkipForward, Undo2, Wallet } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
-import { Empty, Field, Modal, MonthSwitcher, MoneyInput, PageLoading, Segmented, cx, useMonth } from "../components/ui";
+import { useEffect, useMemo, useState } from "react";
+import { Empty, Field, MenuItem, Modal, MonthSwitcher, MoneyInput, PageLoading, Popover, Segmented, cx, useMonth } from "../components/ui";
 import { useLayout } from "../layouts/AppLayout";
 import { api } from "../lib/api";
 import { METHOD_ICON, METHOD_LABEL, firstName, money, monthLabel } from "../lib/format";
@@ -134,7 +134,7 @@ function OccList({ title, items, onToggle, onEdit, onAdjust, onSkip }: {
 }) {
   const total = items.filter((o) => !o.skipped).reduce((s, o) => s + o.amountCents, 0);
   return (
-    <section className="card overflow-hidden">
+    <section className="card">
       <div className="flex items-center justify-between border-b border-brand-950/[0.05] px-4 py-3">
         <h2 className="font-bold">{title} <span className="ml-1 text-xs font-semibold text-ink-faint">{items.length}</span></h2>
         <p className="text-sm font-bold tabular">{money(total)}</p>
@@ -149,14 +149,6 @@ function OccList({ title, items, onToggle, onEdit, onAdjust, onSkip }: {
 function OccRow({ o, onToggle, onEdit, onAdjust, onSkip }: {
   o: Occ; onToggle: (o: Occ) => void; onEdit: (o: Occ) => void; onAdjust: (o: Occ) => void; onSkip: (o: Occ) => void;
 }) {
-  const [menu, setMenu] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (!menu) return;
-    const close = (e: MouseEvent) => !ref.current?.contains(e.target as Node) && setMenu(false);
-    document.addEventListener("mousedown", close);
-    return () => document.removeEventListener("mousedown", close);
-  }, [menu]);
   const income = o.type === "INCOME";
   const isRecurring = o.recurrence !== "ONCE";
 
@@ -197,29 +189,28 @@ function OccRow({ o, onToggle, onEdit, onAdjust, onSkip }: {
         </p>
         {o.overridden && <p className="text-[10px] font-semibold text-amber-600">valor ajustado</p>}
       </div>
-      <div className="relative" ref={ref}>
-        <button className="btn-ghost !p-1.5" onClick={() => setMenu((v) => !v)} aria-label="Mais ações"><MoreVertical size={16} /></button>
-        {menu && (
-          <div className="absolute right-0 top-full z-20 mt-1 w-56 rounded-xl border border-brand-950/10 bg-white p-1 shadow-xl" onClick={() => setMenu(false)}>
-            <MenuItem icon={Pencil} label={isRecurring ? "Editar (este e próximos)" : "Editar"} onClick={() => onEdit(o)} />
-            {isRecurring && <MenuItem icon={Wallet} label="Mudar valor só deste mês" onClick={() => onAdjust(o)} />}
-            {isRecurring && (
-              <MenuItem icon={o.skipped ? Undo2 : SkipForward} label={o.skipped ? "Voltar a cobrar neste mês" : "Pular só este mês"} onClick={() => onSkip(o)} />
+      <Popover trigger={(p) => (
+        <button {...p} className="btn-ghost !p-1.5" aria-label={`Mais ações de ${o.description}`}><MoreVertical size={16} /></button>
+      )}>
+        {(close) => (
+          <>
+            {!o.skipped && (
+              <MenuItem icon={Check} label={o.paid ? "Desmarcar" : income ? "Marcar como recebido" : "Marcar como pago"}
+                onClick={() => { close(); onToggle(o); }} />
             )}
-          </div>
+            <MenuItem icon={Pencil} label={isRecurring ? "Editar (este e próximos)" : "Editar"} onClick={() => { close(); onEdit(o); }} />
+            {isRecurring && <MenuItem icon={Wallet} label="Mudar valor só deste mês" onClick={() => { close(); onAdjust(o); }} />}
+            {isRecurring && (
+              <MenuItem icon={o.skipped ? Undo2 : SkipForward} label={o.skipped ? "Voltar a cobrar neste mês" : "Pular só este mês"}
+                onClick={() => { close(); onSkip(o); }} />
+            )}
+          </>
         )}
-      </div>
+      </Popover>
     </li>
   );
 }
 
-function MenuItem({ icon: Icon, label, onClick }: { icon: typeof Pencil; label: string; onClick: () => void }) {
-  return (
-    <button onClick={onClick} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm hover:bg-brand-50">
-      <Icon size={15} className="text-ink-faint" /> {label}
-    </button>
-  );
-}
 
 /** Ajusta o valor de uma ocorrência só naquele mês (ex.: conta de luz veio diferente, salário teve bônus). */
 function AdjustModal({ occ, onClose }: { occ: Occ | null; onClose: () => void }) {
@@ -247,7 +238,7 @@ function AdjustModal({ occ, onClose }: { occ: Occ | null; onClose: () => void })
           {occ.overridden && (
             <button type="button" className="btn-ghost" disabled={save.isPending} onClick={() => save.mutate(null)}>Voltar ao valor padrão</button>
           )}
-          <button className="btn-primary" disabled={save.isPending}>{save.isPending ? "Salvando…" : "Salvar"}</button>
+          <button type="submit" className="btn-primary" disabled={save.isPending}>{save.isPending ? "Salvando…" : "Salvar"}</button>
         </div>
       </form>
     </Modal>
