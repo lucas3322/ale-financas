@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { CheckCircle2, Pencil, Plus } from "lucide-react";
 import { useState } from "react";
 import { Empty, Field, Modal, MonthSwitcher, MoneyInput, PageLoading, Progress, cx, useMonth } from "../components/ui";
+import { InvoiceModal } from "../components/InvoiceModal";
 import { useLayout } from "../layouts/AppLayout";
 import { api } from "../lib/api";
 import { firstName, money, monthLabel, monthTitle } from "../lib/format";
@@ -12,10 +13,11 @@ import { moneyRule, required, useFormValidation, type Rules } from "../lib/valid
 const COLORS = ["#820AD1", "#1B1530", "#EC7000", "#CC092F", "#0B6BCB", "#00A868", "#F5B700", "#E91E63", "#5B5470", "#0EA5E9"];
 
 export default function Cartoes() {
-  const { month, setMonth } = useMonth();
+  const { month } = useMonth();
   const { openTx } = useLayout();
   const { data: cards = [] } = useCards();
   const [edit, setEdit] = useState<Partial<Card> | null>(null);
+  const [invoice, setInvoice] = useState<{ cardId: string; month: string } | null>(null);
   const q = useQuery({ queryKey: ["cards-summary", month], queryFn: () => api.get<CardSummary[]>(`/cards/summary?month=${month}`) });
   const payInvoice = useAction(
     (p: { id: string; paid: boolean }) => api.post(`/cards/${p.id}/pay-invoice`, { month, paid: p.paid }),
@@ -112,7 +114,7 @@ export default function Cartoes() {
                     <div className="my-1 rounded-2xl bg-brand-50/70 p-3 text-sm text-brand-900">
                       Nenhuma compra vence em {monthLabel(month, { year: false })}. As compras feitas até o dia {c.closingDay} entram na fatura
                       seguinte: <b>{monthLabel(c.nextInvoices[0].month, { year: false })}</b>, com <b className="tabular">{money(c.nextInvoices[0].cents)}</b>.
-                      <button className="mt-1 block font-bold text-brand-700 underline-offset-2 hover:underline" onClick={() => setMonth(c.nextInvoices[0].month)}>
+                      <button className="mt-1 block font-bold text-brand-700 underline-offset-2 hover:underline" onClick={() => setInvoice({ cardId: c.id, month: c.nextInvoices[0].month })}>
                         Ver fatura de {monthLabel(c.nextInvoices[0].month, { year: false })} →
                       </button>
                     </div>
@@ -125,7 +127,8 @@ export default function Cartoes() {
                       <p className="mb-2 text-xs font-semibold text-ink-faint">Próximas faturas</p>
                       <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
                         {c.nextInvoices.map((n) => (
-                          <button key={n.month} onClick={() => setMonth(n.month)} title={`${n.count} lançamento(s)`}
+                          <button key={n.month} onClick={() => setInvoice({ cardId: c.id, month: n.month })}
+                            aria-label={`Ver fatura de ${monthLabel(n.month)}: ${money(n.cents)}, ${n.count} lançamento(s)`}
                             className="shrink-0 rounded-xl border border-brand-950/10 px-3 py-2 text-left transition-colors duration-150 hover:border-brand-300 hover:bg-brand-50">
                             <span className="block text-[11px] font-semibold text-ink-faint">{monthTitle(n.month, { short: true })}</span>
                             <span className="block text-sm font-bold tabular">{money(n.cents)}</span>
@@ -158,6 +161,10 @@ export default function Cartoes() {
       )}
 
       {edit && <CardModal card={edit} onClose={() => setEdit(null)} />}
+      {invoice && (
+        <InvoiceModal cardId={invoice.cardId} month={invoice.month} onClose={() => setInvoice(null)}
+          onEditItem={(o) => { setInvoice(null); openTx({ id: o.transactionId, fromMonth: o.month, recurrence: o.recurrence }); }} />
+      )}
     </div>
   );
 }

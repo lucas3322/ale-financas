@@ -166,8 +166,9 @@ export function cardUsage(card: Card, txs: TxWithRefs[], states: TxOccurrence[],
   const next = new Map<number, { cents: number; count: number }>();
   for (const o of occs) {
     if (o.monthIdx === refIdx) invoice += o.amountCents;
-    // Faturas futuras: só o que já foi comprado até o mês de referência (assinaturas futuras ainda não existem).
-    if (o.monthIdx > refIdx && o.monthIdx <= refIdx + 12 && !(o.chargeMonthIdx > refIdx && o.tx.recurrence !== "INSTALLMENTS")) {
+    // Próximas faturas: valor previsto de cada fatura (parcelas + recorrentes como mercado/assinaturas),
+    // o mesmo que a fatura mostrará quando chegar o mês.
+    if (o.monthIdx > refIdx && o.monthIdx <= refIdx + 12) {
       const cur = next.get(o.monthIdx) ?? { cents: 0, count: 0 };
       cur.cents += o.amountCents;
       cur.count += 1;

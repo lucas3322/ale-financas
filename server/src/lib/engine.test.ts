@@ -68,3 +68,10 @@ test("vencimento dia 31 em fevereiro cai no último dia do mês", () => {
   const occs = buildOccurrences([conta], [], parseMonth("2027-02"), parseMonth("2027-02"));
   assert.equal(occs[0].dueDate, "2027-02-28");
 });
+
+test("próximas faturas incluem recorrentes no cartão (mesmo valor que a fatura terá)", () => {
+  const mercado = tx({ amountCents: 120000, paymentMethod: "CARD", cardId: "c1", card, recurrence: "MONTHLY", date: new Date("2026-11-02T00:00:00Z") });
+  const u = cardUsage(card, [mercado], [], parseMonth("2026-11"));
+  assert.deepEqual(u.nextInvoices.slice(0, 2).map((n) => n.cents), [120000, 120000]);
+  assert.equal(u.committedCents, 120000); // limite: só a compra que já aconteceu
+});
