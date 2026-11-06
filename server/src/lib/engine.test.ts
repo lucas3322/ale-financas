@@ -10,7 +10,7 @@ function tx(p: Partial<TxWithRefs>): TxWithRefs {
     id: Math.random().toString(36), groupId: "g", personId: null, createdById: "u", type: "EXPENSE", description: "x",
     categoryId: null, amountMode: "FIXED", amountCents: 0, percentBp: null, percentBase: null, paymentMethod: "PIX",
     cardId: null, date: new Date("2026-11-10T00:00:00Z"), recurrence: "ONCE", totalMonths: null, installmentStart: 1,
-    isSalary: false, notes: null, createdAt: new Date(), updatedAt: new Date(), card: null, category: null, person: null, ...p,
+    isSalary: false, notes: null, percentBaseTxId: null, seriesId: null, createdAt: new Date(), updatedAt: new Date(), card: null, category: null, person: null, ...p,
   } as TxWithRefs;
 }
 
@@ -74,4 +74,39 @@ test("próximas faturas incluem recorrentes no cartão (mesmo valor que a fatura
   const u = cardUsage(card, [mercado], [], parseMonth("2026-11"));
   assert.deepEqual(u.nextInvoices.slice(0, 2).map((n) => n.cents), [120000, 120000]);
   assert.equal(u.committedCents, 120000); // limite: só a compra que já aconteceu
+});
+
+test("dízimo do Lucas (caso real): empréstimo recebido não entra; dá para vincular a um salário específico", () => {
+  const nov5 = new Date("2026-11-05T00:00:00Z");
+  const emprestimo = tx({ type: "INCOME", personId: "lucas", amountCents: 2500000, date: nov5, paymentMethod: null });
+  const sal5 = tx({ type: "INCOME", personId: "lucas", amountCents: 1150000, date: nov5, isSalary: true, paymentMethod: null });
+  const sal30 = tx({ type: "INCOME", personId: "lucas", amountCents: 1500000, date: new Date("2026-11-30T00:00:00Z"), isSalary: true, recurrence: "MONTHLY", paymentMethod: null });
+  const salAle = tx({ type: "INCOME", personId: "ale", amountCents: 125520, date: nov5, isSalary: true, paymentMethod: null });
+  const base = { personId: "lucas", amountMode: "PERCENT" as const, percentBp: 1000, date: nov5 };
+  const todas = tx({ ...base, percentBase: "PERSON_INCOME" });
+  const salarios = tx({ ...base, percentBase: "PERSON_SALARY" });
+  const doDia5 = tx({ ...base, percentBase: "TRANSACTION", percentBaseTxId: sal5.id });
+  const grupoSal = tx({ ...base, personId: null, percentBase: "GROUP_SALARY" });
+  const occs = buildOccurrences([emprestimo, sal5, sal30, salAle, todas, salarios, doDia5, grupoSal], [], parseMonth("2026-11"), parseMonth("2026-11"));
+  const v = (t: { id: string }) => occs.find((o) => o.transactionId === t.id)!.amountCents;
+  assert.equal(v(todas), 515000); // o bug relatado: 10% de 51.500 (com o empréstimo)
+  assert.equal(v(salarios), 265000); // 10% de 11.500 + 15.000
+  assert.equal(v(doDia5), 115000); // 10% só do salário do dia 5 = R$ 1.150
+  assert.equal(v(grupoSal), 277552); // salários do casal
+});
+
+test("percentual vinculado a uma entrada que não ocorre no mês dá zero (não inventa valor)", () => {
+  const sal = tx({ type: "INCOME", personId: "lucas", amountCents: 1000000, date: new Date("2026-10-05T00:00:00Z"), isSalary: true, paymentMethod: null });
+  const p = tx({ personId: "lucas", amountMode: "PERCENT", percentBp: 1000, percentBase: "TRANSACTION", percentBaseTxId: sal.id, recurrence: "MONTHLY", date: new Date("2026-10-05T00:00:00Z") });
+  const occs = buildOccurrences([sal, p], [], parseMonth("2026-10"), parseMonth("2026-11"));
+  assert.deepEqual(occs.filter((o) => o.transactionId === p.id).map((o) => o.amountCents), [100000, 0]);
+});
+
+test("dízimo vinculado ao salário acompanha o aumento feito com 'a partir deste mês'", () => {
+  const d = new Date("2026-11-05T00:00:00Z");
+  const antigo = tx({ type: "INCOME", personId: "lucas", amountCents: 1150000, date: d, recurrence: "MONTHLY", totalMonths: 2, isSalary: true, paymentMethod: null });
+  const novo = tx({ type: "INCOME", personId: "lucas", amountCents: 2000000, date: new Date("2027-01-05T00:00:00Z"), recurrence: "MONTHLY", isSalary: true, paymentMethod: null, seriesId: antigo.id });
+  const diz = tx({ personId: "lucas", amountMode: "PERCENT", percentBp: 1000, percentBase: "TRANSACTION", percentBaseTxId: antigo.id, recurrence: "MONTHLY", date: d });
+  const occs = buildOccurrences([antigo, novo, diz], [], parseMonth("2026-11"), parseMonth("2027-02"));
+  assert.deepEqual(occs.filter((o) => o.transactionId === diz.id).map((o) => o.amountCents), [115000, 115000, 200000, 200000]);
 });

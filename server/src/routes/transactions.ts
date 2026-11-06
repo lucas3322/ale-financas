@@ -17,7 +17,8 @@ const txBase = z.object({
   amountMode: z.enum(["FIXED", "PERCENT"]).default("FIXED"),
   amountCents: z.number().int().min(0).default(0),
   percentBp: z.number().int().min(1).max(100000).nullable().optional(),
-  percentBase: z.enum(["PERSON_INCOME", "GROUP_INCOME"]).nullable().optional(),
+  percentBase: z.enum(["PERSON_SALARY", "PERSON_INCOME", "GROUP_SALARY", "GROUP_INCOME", "TRANSACTION"]).nullable().optional(),
+  percentBaseTxId: z.string().nullable().optional(),
   paymentMethod: z.enum(["PIX", "BOLETO", "CARD", "DEBIT", "CASH", "TRANSFER"]).nullable().optional(),
   cardId: z.string().nullable().optional(),
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
@@ -32,6 +33,7 @@ type TxInput = z.infer<typeof txBase>;
 
 function normalize(i: TxInput): Omit<Prisma.TransactionUncheckedCreateInput, "groupId" | "createdById"> {
   if (i.amountMode === "PERCENT" && !i.percentBp) throw badRequest("Informe o percentual");
+  if (i.amountMode === "PERCENT" && i.percentBase === "TRANSACTION" && !i.percentBaseTxId) throw badRequest("Escolha a entrada usada como base");
   if (i.amountMode === "FIXED" && i.amountCents <= 0) throw badRequest("Informe um valor maior que zero");
   if (i.type === "EXPENSE" && i.paymentMethod === "CARD" && !i.cardId) throw badRequest("Escolha o cartão");
   if (i.recurrence === "INSTALLMENTS") {
@@ -47,7 +49,8 @@ function normalize(i: TxInput): Omit<Prisma.TransactionUncheckedCreateInput, "gr
     amountMode: i.type === "INCOME" ? "FIXED" : i.amountMode,
     amountCents: i.amountMode === "PERCENT" && i.type === "EXPENSE" ? 0 : i.amountCents,
     percentBp: i.amountMode === "PERCENT" ? i.percentBp ?? null : null,
-    percentBase: i.amountMode === "PERCENT" ? i.percentBase ?? "PERSON_INCOME" : null,
+    percentBase: i.amountMode === "PERCENT" ? i.percentBase ?? "PERSON_SALARY" : null,
+    percentBaseTxId: i.amountMode === "PERCENT" && i.percentBase === "TRANSACTION" ? i.percentBaseTxId ?? null : null,
     paymentMethod: i.type === "EXPENSE" ? i.paymentMethod ?? null : null,
     cardId: isCard ? i.cardId ?? null : null,
     date: toDateOnly(i.date),
@@ -75,6 +78,15 @@ async function getOwnTx(id: string, groupId: string) {
   return tx;
 }
 
+/** A entrada usada como base do percentual precisa existir no grupo e ser uma entrada (não uma saída). */
+async function assertPercentBase(groupId: string, i: TxInput, selfId?: string) {
+  if (i.amountMode !== "PERCENT" || i.percentBase !== "TRANSACTION" || !i.percentBaseTxId) return;
+  if (i.percentBaseTxId === selfId) throw badRequest("Um lançamento não pode ser base dele mesmo");
+  const base = await prisma.transaction.findFirst({ where: { id: i.percentBaseTxId, groupId }, select: { type: true } });
+  if (!base) throw badRequest("Entrada base inválida");
+  if (base.type !== "INCOME") throw badRequest("A base do percentual precisa ser uma entrada");
+}
+
 export async function transactionRoutes(app: FastifyInstance) {
   app.get<{ Querystring: { type?: string; recurring?: string } }>("/transactions", async (req) => {
     const where: Prisma.TransactionWhereInput = { groupId: req.ctx.groupId };
@@ -100,6 +112,7 @@ export async function transactionRoutes(app: FastifyInstance) {
   app.post("/transactions", async (req) => {
     const input = txBase.parse(req.body);
     await assertRefs(req.ctx.groupId, input);
+    await assertPercentBase(req.ctx.groupId, input);
     const data = normalize(input);
     const tx = await prisma.transaction.create({
       data: { ...data, groupId: req.ctx.groupId, createdById: req.ctx.userId },
@@ -119,6 +132,7 @@ export async function transactionRoutes(app: FastifyInstance) {
       .parse(req.body);
     const input = txBase.parse(rest);
     await assertRefs(req.ctx.groupId, input);
+    await assertPercentBase(req.ctx.groupId, input, req.params.id);
     const data = normalize(input);
     const old = await getOwnTx(req.params.id, req.ctx.groupId);
 
@@ -131,6 +145,7 @@ export async function transactionRoutes(app: FastifyInstance) {
           const novo = await db.transaction.create({
             data: {
               ...data,
+              seriesId: old.seriesId ?? old.id,
               date: addMonthsToDate(old.date, diff),
               totalMonths: old.totalMonths != null ? old.totalMonths - diff : data.totalMonths,
               groupId: old.groupId,

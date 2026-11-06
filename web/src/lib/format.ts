@@ -75,3 +75,15 @@ export function invoiceFor(date: string, card: { closingDay: number; dueDay: num
   const due = `${String(Math.min(card.dueDay, lastDay)).padStart(2, "0")}/${String(mm).padStart(2, "0")}`;
   return { month, due };
 }
+
+const PERCENT_BASE_LABEL: Record<string, string> = {
+  PERSON_SALARY: "dos salários",
+  PERSON_INCOME: "das entradas",
+  GROUP_SALARY: "dos salários do grupo",
+  GROUP_INCOME: "das entradas do grupo",
+  TRANSACTION: "de uma entrada",
+};
+/** "10% dos salários", "10% de uma entrada"… */
+export function percentLabel(o: { percentBp: number | null; percentBase: string | null }) {
+  return `${((o.percentBp ?? 0) / 100).toLocaleString("pt-BR")}% ${PERCENT_BASE_LABEL[o.percentBase ?? ""] ?? "da renda"}`;
+}

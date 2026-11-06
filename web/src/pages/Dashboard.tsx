@@ -7,7 +7,7 @@ import { Empty, MonthSwitcher, PageLoading, Progress, cx, useMonth } from "../co
 import { useLayout } from "../layouts/AppLayout";
 import { api } from "../lib/api";
 import { AppIcon, CategoryIcon, MethodIcon, PaymentTag } from "../components/AppIcon";
-import { METHOD_LABEL, firstName, money, monthLabel, moneyShort } from "../lib/format";
+import { METHOD_LABEL, firstName, money, monthLabel, moneyShort, percentLabel } from "../lib/format";
 import { useAction, useMe } from "../lib/queries";
 import type { Dashboard as DashboardData, Occ } from "../lib/types";
 
@@ -249,7 +249,7 @@ export default function Dashboard() {
                       </p>
                       <p className="text-xs text-ink-faint">
                         dia {o.day} · <PaymentTag card={o.card} method={o.paymentMethod} />
-                        {o.amountMode === "PERCENT" && ` · ${(o.percentBp ?? 0) / 100}% da renda`}
+                        {o.amountMode === "PERCENT" && ` · ${percentLabel(o)}`}
                       </p>
                     </div>
                     <p className="text-sm font-bold tabular">{money(o.amountCents)}</p>

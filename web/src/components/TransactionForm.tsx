@@ -1,13 +1,13 @@
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { api } from "../lib/api";
-import { METHOD_LABEL, invoiceFor, money, monthLabel, today } from "../lib/format";
+import { METHOD_LABEL, firstName, invoiceFor, money, monthLabel, today } from "../lib/format";
 import { AppIcon, MethodIcon } from "./AppIcon";
 import { CategoryPicker } from "./CategoryPicker";
 import { DateInput } from "./DateInput";
 import { useAction, useCards, useCategories, useMe } from "../lib/queries";
 import { intRange, moneyRule, required, useFormValidation, validDate, type Rules } from "../lib/validation";
-import type { AmountMode, CardSummary, PaymentMethod, PercentBase, Recurrence, Transaction, TxType } from "../lib/types";
+import type { AmountMode, CardSummary, Occ, PaymentMethod, PercentBase, Recurrence, Transaction, TxType } from "../lib/types";
 import { QuickCategory } from "./QuickCategory";
 import { Field, Modal, MoneyInput, PageLoading, Segmented, cx, useMonth } from "./ui";
 
@@ -22,6 +22,7 @@ interface FormState {
   amountCents: number;
   percent: string;
   percentBase: PercentBase;
+  percentBaseTxId: string;
   paymentMethod: PaymentMethod;
   cardId: string | null;
   date: string;
@@ -44,7 +45,8 @@ function initialState(d: TxDraft | undefined, userId: string, defaultDate: strin
     amountMode: d?.amountMode ?? "FIXED",
     amountCents: d?.amountCents ?? 0,
     percent: d?.percentBp ? String(d.percentBp / 100).replace(".", ",") : "10",
-    percentBase: d?.percentBase ?? "PERSON_INCOME",
+    percentBase: d?.percentBase ?? "PERSON_SALARY",
+    percentBaseTxId: d?.percentBaseTxId ?? "",
     paymentMethod: d?.paymentMethod ?? "PIX",
     cardId: d?.cardId ?? null,
     date: d?.date ?? defaultDate,
@@ -100,6 +102,36 @@ function TransactionForm({ draft, onDone }: { draft?: TxDraft; onDone: () => voi
   }, [f.paymentMethod, activeCards, f.cardId]);
 
   const cats = useMemo(() => categories.filter((c) => c.kind === f.type), [categories, f.type]);
+
+  // Percentual: entradas que podem ser base e prévia do valor no mês da data escolhida.
+  const isPercent = isExpense && f.amountMode === "PERCENT";
+  const incomesQ = useQuery({ queryKey: ["transactions", "INCOME"], queryFn: () => api.get<Transaction[]>("/transactions?type=INCOME"), enabled: isPercent });
+  const incomeOptions = useMemo(() => {
+    const list = incomesQ.data ?? [];
+    // As entradas da pessoa do lançamento primeiro, salários antes das outras.
+    return [...list].sort((a, b) => Number(b.personId === f.personId) - Number(a.personId === f.personId) || Number(b.isSalary) - Number(a.isSalary) || a.description.localeCompare(b.description));
+  }, [incomesQ.data, f.personId]);
+  const previewMonth = /^\d{4}-\d{2}/.test(f.date) ? f.date.slice(0, 7) : null;
+  const monthQ = useQuery({
+    queryKey: ["month", previewMonth],
+    queryFn: () => api.get<{ items: Occ[] }>(`/months/${previewMonth}`),
+    enabled: isPercent && !!previewMonth,
+  });
+  const percentPreview = useMemo(() => {
+    if (!isPercent || !monthQ.data) return null;
+    const pct = Number(f.percent.replace(",", "."));
+    if (!Number.isFinite(pct) || pct <= 0) return null;
+    const incomes = monthQ.data.items.filter((o) => o.type === "INCOME" && !o.skipped);
+    const mine = (o: Occ) => (f.personId ? o.person?.id === f.personId : true);
+    const sum = (xs: Occ[]) => xs.reduce((acc, o) => acc + o.amountCents, 0);
+    const base =
+      f.percentBase === "TRANSACTION" ? sum(incomes.filter((o) => o.transactionId === f.percentBaseTxId))
+      : f.percentBase === "PERSON_SALARY" ? sum(incomes.filter((o) => o.isSalary && mine(o)))
+      : f.percentBase === "PERSON_INCOME" ? sum(incomes.filter(mine))
+      : f.percentBase === "GROUP_SALARY" ? sum(incomes.filter((o) => o.isSalary))
+      : sum(incomes);
+    return { base, value: Math.round((base * pct) / 100) };
+  }, [isPercent, monthQ.data, f.percent, f.percentBase, f.percentBaseTxId, f.personId]);
   // Salário novo já vem com a categoria "Salário" (se existir).
   useEffect(() => {
     if (isEdit || f.type !== "INCOME" || !f.isSalary || f.categoryId) return;
@@ -142,6 +174,7 @@ function TransactionForm({ draft, onDone }: { draft?: TxDraft; onDone: () => voi
       return null;
     },
     notes: (v) => (v.length > 500 ? "Máximo de 500 caracteres" : null),
+    percentBaseTxId: (v, a) => (a.type === "EXPENSE" && a.amountMode === "PERCENT" && a.percentBase === "TRANSACTION" && !v ? "Escolha a entrada usada como base" : null),
   }), []);
   const v = useFormValidation(f, rules);
 
@@ -156,6 +189,7 @@ function TransactionForm({ draft, onDone }: { draft?: TxDraft; onDone: () => voi
         amountCents: perInstallment,
         percentBp: f.amountMode === "PERCENT" ? Math.round(Number(f.percent.replace(",", ".")) * 100) : null,
         percentBase: f.percentBase,
+        percentBaseTxId: f.percentBase === "TRANSACTION" ? f.percentBaseTxId || null : null,
         paymentMethod: isExpense ? f.paymentMethod : null,
         cardId: isExpense && f.paymentMethod === "CARD" ? f.cardId : null,
         date: f.date,
@@ -209,14 +243,33 @@ function TransactionForm({ draft, onDone }: { draft?: TxDraft; onDone: () => voi
               <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-sm font-semibold text-ink-faint">%</span>
             </div>
           </Field>
-          <Field label="Sobre a renda de">
+          <Field label="Sobre o quê">
             <select className="field" value={f.percentBase} onChange={(e) => set("percentBase", e.target.value as PercentBase)}>
-              <option value="PERSON_INCOME">Da pessoa</option>
-              <option value="GROUP_INCOME">Todo o grupo</option>
+              <option value="PERSON_SALARY">Salários da pessoa</option>
+              <option value="TRANSACTION">Uma entrada específica…</option>
+              <option value="PERSON_INCOME">Todas as entradas da pessoa</option>
+              <option value="GROUP_SALARY">Salários do casal/grupo</option>
+              <option value="GROUP_INCOME">Todas as entradas do grupo</option>
             </select>
           </Field>
+          {f.percentBase === "TRANSACTION" && (
+            <Field label="Qual entrada" error={v.error("percentBaseTxId")} className="col-span-2">
+              <select className="field" {...v.bind("percentBaseTxId")} value={f.percentBaseTxId} onChange={(e) => set("percentBaseTxId", e.target.value)}>
+                <option value="" disabled>Escolha a entrada (ex.: Salário do dia 5)</option>
+                {incomeOptions.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.description} · {t.person ? firstName(t.person.name) : "Casa"} · {t.recurrence === "MONTHLY" ? `todo dia ${Number(t.date.slice(8, 10))}` : new Date(`${t.date}T12:00:00`).toLocaleDateString("pt-BR")} · {money(t.amountCents)}
+                  </option>
+                ))}
+              </select>
+            </Field>
+          )}
           <p className="col-span-2 -mt-1 rounded-xl bg-brand-50 px-3 py-2 text-xs text-brand-800">
-            O valor é recalculado todo mês com base nas entradas. Se o salário aumentar, o lançamento acompanha automaticamente.
+            {percentPreview
+              ? <>Em {monthLabel(f.date.slice(0, 7), { year: false })}: <b>{f.percent}% de {money(percentPreview.base)} = {money(percentPreview.value)}</b>. </>
+              : null}
+            Recalculado todo mês: se o salário aumentar, o valor acompanha.
+            {f.percentBase === "PERSON_INCOME" || f.percentBase === "GROUP_INCOME" ? " Atenção: “todas as entradas” inclui empréstimos recebidos e rendas extras." : ""}
           </p>
         </div>
       ) : (

@@ -127,9 +127,18 @@ enum AmountMode {
   PERCENT
 }
 
+/// Sobre o que o percentual incide (ex.: dízimo).
 enum PercentBase {
+  /// Todas as entradas da pessoa
   PERSON_INCOME
+  /// Todas as entradas do grupo
   GROUP_INCOME
+  /// Só os salários da pessoa (empréstimos e rendas extras ficam de fora)
+  PERSON_SALARY
+  /// Só os salários do grupo
+  GROUP_SALARY
+  /// Uma entrada específica (percentBaseTxId) — ex.: 10% do salário do dia 5
+  TRANSACTION
 }
 
 enum PaymentMethod {
@@ -162,6 +171,11 @@ model Transaction {
   /// Percentual em pontos-base (1000 = 10%)
   percentBp        Int?
   percentBase      PercentBase?
+  /// Entrada usada como base quando percentBase = TRANSACTION
+  percentBaseTxId  String?
+  /// Série original quando o lançamento foi dividido ("alterar a partir deste mês"):
+  /// percentuais vinculados à entrada continuam valendo depois de um aumento de salário.
+  seriesId         String?
   paymentMethod    PaymentMethod?
   cardId           String?
   /// Data da compra / primeira ocorrência
@@ -180,6 +194,8 @@ model Transaction {
   category         Category?       @relation(fields: [categoryId], references: [id], onDelete: SetNull)
   card             Card?           @relation(fields: [cardId], references: [id], onDelete: SetNull)
   occurrences      TxOccurrence[]
+  percentBaseTx    Transaction?    @relation("PercentBase", fields: [percentBaseTxId], references: [id], onDelete: SetNull)
+  percentDependents Transaction[]  @relation("PercentBase")
 
   @@index([groupId])
 }

@@ -2,7 +2,7 @@ export type TxType = "INCOME" | "EXPENSE";
 export type PaymentMethod = "PIX" | "BOLETO" | "CARD" | "DEBIT" | "CASH" | "TRANSFER";
 export type Recurrence = "ONCE" | "MONTHLY" | "INSTALLMENTS";
 export type AmountMode = "FIXED" | "PERCENT";
-export type PercentBase = "PERSON_INCOME" | "GROUP_INCOME";
+export type PercentBase = "PERSON_SALARY" | "PERSON_INCOME" | "GROUP_SALARY" | "GROUP_INCOME" | "TRANSACTION";
 
 export interface Me {
   user: { id: string; name: string; email: string };
@@ -20,7 +20,7 @@ export interface Card {
 
 export interface Transaction {
   id: string; type: TxType; description: string; categoryId: string | null; personId: string | null;
-  amountMode: AmountMode; amountCents: number; percentBp: number | null; percentBase: PercentBase | null;
+  amountMode: AmountMode; amountCents: number; percentBp: number | null; percentBase: PercentBase | null; percentBaseTxId: string | null;
   paymentMethod: PaymentMethod | null; cardId: string | null; date: string; recurrence: Recurrence;
   totalMonths: number | null; installmentStart: number; isSalary: boolean; notes: string | null;
   category?: Category | null; card?: { id: string; name: string; color: string } | null;
@@ -31,7 +31,7 @@ export interface Occ {
   transactionId: string; month: string; day: number; dueDate: string; installmentLabel: string | null;
   amountCents: number; overridden: boolean; paid: boolean; skipped: boolean;
   type: TxType; description: string; isSalary: boolean; recurrence: Recurrence; totalMonths: number | null;
-  amountMode: AmountMode; percentBp: number | null; percentBase: PercentBase | null;
+  amountMode: AmountMode; percentBp: number | null; percentBase: PercentBase | null; percentBaseTxId?: string | null;
   paymentMethod: PaymentMethod | null; date: string;
   category: { id: string; name: string; color: string; icon: string; parent?: { id: string; name: string; color: string; icon: string } | null } | null;
   person: { id: string; name: string } | null;

@@ -6,7 +6,7 @@ import { InvoiceModal } from "../components/InvoiceModal";
 import { useLayout } from "../layouts/AppLayout";
 import { api } from "../lib/api";
 import { AppIcon, CategoryIcon, PaymentTag } from "../components/AppIcon";
-import { firstName, money, monthLabel } from "../lib/format";
+import { firstName, money, monthLabel, percentLabel } from "../lib/format";
 import { useAction, useMe } from "../lib/queries";
 import type { Occ, Totals, Transaction } from "../lib/types";
 import { moneyRule, useFormValidation } from "../lib/validation";
@@ -282,7 +282,7 @@ function OccRow({ o, today, onToggle, onEdit, onAdjust, onSkip }: {
           {o.person ? ` · ${firstName(o.person.name)}` : " · Casa"}
           {(o.card || o.paymentMethod) && <> · <PaymentTag card={o.card} method={o.paymentMethod} /></>}
           {o.category?.parent && ` · ${o.category.parent.name} › ${o.category.name}`}
-          {o.amountMode === "PERCENT" && ` · ${(o.percentBp ?? 0) / 100}% da renda`}
+          {o.amountMode === "PERCENT" && ` · ${percentLabel(o)}`}
           {o.skipped && " · pulado neste mês"}
         </p>
         {!o.paid && !o.skipped && o.dueDate > today && (
@@ -397,7 +397,7 @@ function FixedView() {
                     </p>
                   </div>
                   <p className={cx("text-sm font-bold tabular", t.type === "INCOME" && "text-emerald-600")}>
-                    {t.amountMode === "PERCENT" ? `${(t.percentBp ?? 0) / 100}% da renda` : money(t.amountCents)}
+                    {t.amountMode === "PERCENT" ? percentLabel(t) : money(t.amountCents)}
                   </p>
                 </button>
               </li>

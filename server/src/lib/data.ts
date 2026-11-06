@@ -40,6 +40,7 @@ export function serializeOcc(o: Occurrence) {
     amountMode: t.amountMode,
     percentBp: t.percentBp,
     percentBase: t.percentBase,
+    percentBaseTxId: t.percentBaseTxId,
     paymentMethod: t.paymentMethod,
     date: t.date.toISOString().slice(0, 10),
     category: t.category
