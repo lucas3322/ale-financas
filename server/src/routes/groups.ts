@@ -78,6 +78,7 @@ export async function groupRoutes(app: FastifyInstance) {
       const body = z
         .object({ name: z.string().trim().min(2).optional(), initialBalanceCents: z.number().int().optional() })
         .parse(req.body);
+      if (body.name !== undefined && req.ctx.role !== "OWNER") throw forbidden("Só o dono do grupo pode renomeá-lo");
       await prisma.group.update({ where: { id: req.ctx.groupId }, data: body });
       return { ok: true };
     });

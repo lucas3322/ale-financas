@@ -1,7 +1,7 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Check, Copy, Crown, LogIn, Plus, Share2, Trash2, UserMinus } from "lucide-react";
 import { useMemo, useState, type ReactNode } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { Avatar, Empty, Field, Modal, MoneyInput, PageHeader, PageLoading, cx, useToast } from "../components/ui";
 import { api } from "../lib/api";
 import { INVITE_RE, formatInvite, money } from "../lib/format";
@@ -50,6 +50,7 @@ export default function Grupo() {
   return (
     <>
       <PageHeader title="Grupo" subtitle="Quem compartilha as finanças com você e como convidar mais gente." />
+      <InviteBanner />
       <div className="grid gap-5 lg:grid-cols-2">
         <div className="space-y-5">
           <GroupSettings key={me.activeGroup.id} isOwner={isOwner} />
@@ -242,6 +243,58 @@ function Invites() {
         </div>
       )}
     </Section>
+  );
+}
+
+/* ---------- Convite recebido por link (pessoa já logada) ---------- */
+function InviteBanner() {
+  const [params, setParams] = useSearchParams();
+  const qc = useQueryClient();
+  const nav = useNavigate();
+  const token = formatInvite(params.get("convite") ?? "");
+  const valid = INVITE_RE.test(token);
+  const info = useQuery({
+    queryKey: ["invite", token],
+    queryFn: () => api.get<{ groupName: string }>(`/invites/${token}`),
+    enabled: valid,
+    retry: false,
+  });
+  const dismiss = () => setParams((p) => { p.delete("convite"); return p; }, { replace: true });
+  const join = useAction(() => api.post("/groups/join", { token }), "Você entrou no grupo! 🎉", async () => {
+    await qc.resetQueries();
+    nav("/app", { replace: true });
+  });
+  if (!params.get("convite")) return null;
+
+  const bad = !valid || info.isError;
+  return (
+    <div className={cx("mb-5 rounded-3xl p-5 motion-safe:animate-[fade_.2s_ease-out]",
+      bad ? "border border-rose-200 bg-rose-50" : "bg-gradient-to-br from-brand-600 to-brand-800 text-white")}>
+      {bad ? (
+        <div className="flex flex-wrap items-center gap-3">
+          <p className="flex-1 text-sm text-rose-900">
+            Esse convite (<b className="font-mono">{token || "vazio"}</b>) é inválido, já foi usado ou expirou. Peça um código novo.
+          </p>
+          <button className="btn-ghost" onClick={dismiss}>Fechar</button>
+        </div>
+      ) : (
+        <div className="flex flex-wrap items-center gap-4">
+          <div className="min-w-0 flex-1">
+            <p className="text-xs font-semibold uppercase tracking-wider text-white/70">Convite recebido</p>
+            <p className="mt-0.5 text-lg font-extrabold">
+              {info.data ? <>Você foi convidado para o grupo “{info.data.groupName}”</> : "Verificando convite…"}
+            </p>
+            <p className="text-sm text-white/75">Você vai ver e editar as finanças desse grupo. Seus outros grupos continuam disponíveis.</p>
+          </div>
+          <div className="flex gap-2">
+            <button className="btn rounded-xl px-4 text-white/80 hover:bg-white/10" onClick={dismiss}>Agora não</button>
+            <button className="btn bg-white text-brand-700 hover:bg-brand-50" disabled={!info.data || join.isPending} onClick={() => join.mutate(undefined)}>
+              <LogIn size={16} /> {join.isPending ? "Entrando…" : "Entrar no grupo"}
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 

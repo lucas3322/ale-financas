@@ -1,6 +1,6 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { Suspense, lazy, useEffect } from "react";
-import { Navigate, Route, Routes, useNavigate } from "react-router-dom";
+import { Navigate, Route, Routes, useNavigate, useSearchParams } from "react-router-dom";
 import AppLayout from "./layouts/AppLayout";
 import { PageLoading, useMonth } from "./components/ui";
 import { currentMonth } from "./lib/format";
@@ -28,8 +28,11 @@ function Private({ children }: { children: JSX.Element }) {
 
 function PublicOnly({ children }: { children: JSX.Element }) {
   const me = useMe();
+  const [params] = useSearchParams();
   if (me.isLoading) return <PageLoading />;
-  if (me.data) return <Navigate to="/app" replace />;
+  // Já logado abrindo um link de convite: leva para o Grupo com o convite em destaque, sem perder o código.
+  const convite = params.get("convite");
+  if (me.data) return <Navigate to={convite ? `/app/grupo?convite=${encodeURIComponent(convite)}` : "/app"} replace />;
   return children;
 }
 
