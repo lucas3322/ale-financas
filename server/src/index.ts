@@ -12,6 +12,7 @@ import { prisma } from "./lib/db.js";
 import { HttpError } from "./lib/http.js";
 import { authRoutes } from "./routes/auth.js";
 import { catalogRoutes } from "./routes/catalog.js";
+import { dashboardRoutes } from "./routes/dashboards.js";
 import { groupRoutes } from "./routes/groups.js";
 import { reportRoutes } from "./routes/reports.js";
 import { shoppingRoutes } from "./routes/shopping.js";
@@ -61,6 +62,7 @@ await app.register(
       await scoped.register(transactionRoutes);
       await scoped.register(reportRoutes);
       await scoped.register(shoppingRoutes);
+      await scoped.register(dashboardRoutes);
     });
   },
   { prefix: "/api" },

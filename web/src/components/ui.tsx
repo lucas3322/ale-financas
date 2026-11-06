@@ -8,7 +8,7 @@ export function cx(...c: (string | false | null | undefined)[]) {
 
 /* ---------- Modal (vira bottom-sheet no celular) ---------- */
 export function Modal({ open, onClose, title, children, wide }: {
-  open: boolean; onClose: () => void; title: string; children: ReactNode; wide?: boolean;
+  open: boolean; onClose: () => void; title: string; children: ReactNode; wide?: boolean | "xl";
 }) {
   useEffect(() => {
     if (!open) return;
@@ -25,8 +25,8 @@ export function Modal({ open, onClose, title, children, wide }: {
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
       <div className="absolute inset-0 bg-brand-950/40 backdrop-blur-[2px] animate-[fade_.15s_ease-out]" onClick={onClose} />
       <div className={cx(
-        "relative w-full bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl max-h-[92dvh] flex flex-col animate-[pop_.18s_cubic-bezier(.2,.9,.3,1.2)]",
-        wide ? "sm:max-w-2xl" : "sm:max-w-lg",
+        "relative w-full bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl max-h-[92dvh] flex flex-col motion-safe:animate-[pop_.24s_cubic-bezier(0.23,1,0.32,1)] motion-reduce:animate-[fade_.15s_ease-out]",
+        wide === "xl" ? "sm:max-w-5xl" : wide ? "sm:max-w-2xl" : "sm:max-w-lg",
       )}>
         <div className="flex items-center justify-between px-5 pt-5 pb-3">
           <h2 className="text-lg font-bold">{title}</h2>

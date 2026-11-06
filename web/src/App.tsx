@@ -15,6 +15,7 @@ const Lancamentos = lazy(() => import("./pages/Lancamentos"));
 const Cartoes = lazy(() => import("./pages/Cartoes"));
 const Compras = lazy(() => import("./pages/Compras"));
 const Previsao = lazy(() => import("./pages/Previsao"));
+const Dashboards = lazy(() => import("./pages/Dashboards"));
 const Categorias = lazy(() => import("./pages/Categorias"));
 const Grupo = lazy(() => import("./pages/Grupo"));
 
@@ -62,6 +63,7 @@ export default function App() {
         <Route path="cartoes" element={<Cartoes />} />
         <Route path="compras" element={<Compras />} />
         <Route path="previsao" element={<Previsao />} />
+        <Route path="dashboards" element={<Dashboards />} />
         <Route path="categorias" element={<Categorias />} />
         <Route path="grupo" element={<Grupo />} />
       </Route>

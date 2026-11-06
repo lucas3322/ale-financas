@@ -49,6 +49,7 @@ model Group {
   cards               Card[]
   transactions        Transaction[]
   shoppingItems       ShoppingItem[]
+  dashboards          Dashboard[]
 }
 
 enum Role {
@@ -214,4 +215,20 @@ model ShoppingItem {
   createdAt      DateTime       @default(now())
   group          Group          @relation(fields: [groupId], references: [id], onDelete: Cascade)
   card           Card?          @relation(fields: [cardId], references: [id], onDelete: SetNull)
+}
+
+/// Dashboard personalizado: os widgets (tipo de gráfico + consulta) ficam num JSON validado pela API.
+model Dashboard {
+  id          String   @id @default(cuid())
+  groupId     String
+  createdById String
+  name        String
+  icon        String   @default("📊")
+  position    Int      @default(0)
+  widgets     Json     @default("[]")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  group       Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  @@index([groupId])
 }

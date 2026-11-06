@@ -26,3 +26,9 @@
 @keyframes fade { from { opacity: 0 } }
 @keyframes pop { from { opacity: 0; transform: translateY(16px) scale(.98) } }
 @keyframes shake { 10%,90%{transform:translateX(-1px)} 20%,80%{transform:translateX(2px)} 30%,50%,70%{transform:translateX(-3px)} 40%,60%{transform:translateX(3px)} }
+/* Barra de ranking crescendo a partir da esquerda (revelação de dado, não entrada de elemento) */
+@keyframes grow { from { transform: scaleX(0.02) } }
+
+/* Widgets: o número se ajusta à largura do próprio card (container query), não da tela. */
+.cq { container-type: inline-size; }
+.kpi-value { font-size: clamp(1.15rem, 13.5cqi, 1.9rem); line-height: 1.15; letter-spacing: -0.02em; white-space: nowrap; }

@@ -1,6 +1,6 @@
 import { useQueryClient } from "@tanstack/react-query";
 import {
-  ArrowLeftRight, ChevronsUpDown, CreditCard, LayoutDashboard, LogOut, Plus, ShoppingBag, Tags, TrendingUp, Users,
+  ArrowLeftRight, ChevronsUpDown, CreditCard, LayoutDashboard, LogOut, PieChart, Plus, ShoppingBag, Tags, TrendingUp, Users,
 } from "lucide-react";
 import { Suspense, useState } from "react";
 import { NavLink, Outlet, useLocation, useNavigate, useOutletContext } from "react-router-dom";
@@ -13,13 +13,14 @@ import { useMe } from "../lib/queries";
 const NAV = [
   { to: "/app", label: "Início", icon: LayoutDashboard, end: true },
   { to: "/app/lancamentos", label: "Lançamentos", icon: ArrowLeftRight },
+  { to: "/app/dashboards", label: "Dashboards", icon: PieChart },
   { to: "/app/cartoes", label: "Cartões", icon: CreditCard },
   { to: "/app/previsao", label: "Previsão", icon: TrendingUp },
   { to: "/app/compras", label: "Lista de compras", icon: ShoppingBag },
   { to: "/app/categorias", label: "Categorias", icon: Tags },
   { to: "/app/grupo", label: "Grupo", icon: Users },
 ];
-const MOBILE_NAV = [NAV[0], NAV[1], NAV[2], NAV[3]];
+const MOBILE_NAV = [NAV[0], NAV[1], NAV[2], NAV[4]];
 
 type Ctx = { openTx: (draft?: TxDraft) => void };
 export const useLayout = () => useOutletContext<Ctx>();
@@ -120,6 +121,7 @@ export default function AppLayout() {
       <header className="sticky top-0 z-20 flex items-center justify-between border-b border-brand-950/[0.05] bg-white/90 px-4 py-3 backdrop-blur lg:hidden">
         <Logo />
         <div className="flex items-center gap-1">
+          <NavLink to="/app/cartoes" className="btn-ghost !p-2" aria-label="Cartões"><CreditCard size={18} /></NavLink>
           <NavLink to="/app/categorias" className="btn-ghost !p-2" aria-label="Categorias"><Tags size={18} /></NavLink>
           <NavLink to="/app/compras" className="btn-ghost !p-2" aria-label="Lista de compras"><ShoppingBag size={18} /></NavLink>
           <NavLink to="/app/grupo" className="btn-ghost !p-1.5" aria-label="Grupo e conta"><Avatar name={me.user.name} size={28} /></NavLink>
