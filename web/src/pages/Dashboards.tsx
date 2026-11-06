@@ -187,8 +187,8 @@ function DashTabs({ list, activeId, onSelect, onNew, onEdit }: {
 }) {
   const reduce = useReducedMotion();
   return (
-    <div className="-mx-4 mb-5 flex items-center gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:px-0" role="tablist" aria-label="Seus dashboards">
-      <div className="flex shrink-0 gap-1 rounded-2xl bg-brand-950/[0.05] p-1">
+    <div className="mb-5 flex flex-wrap items-center gap-2" role="tablist" aria-label="Seus dashboards">
+      <div className="flex min-w-0 flex-wrap gap-1 rounded-2xl bg-brand-950/[0.05] p-1">
         {list.map((d) => {
           const on = d.id === activeId;
           return (

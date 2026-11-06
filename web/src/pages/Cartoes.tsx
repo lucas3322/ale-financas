@@ -5,7 +5,7 @@ import { Empty, Field, Modal, MonthSwitcher, MoneyInput, PageLoading, Progress, 
 import { InvoiceModal } from "../components/InvoiceModal";
 import { useLayout } from "../layouts/AppLayout";
 import { api } from "../lib/api";
-import { firstName, money, monthLabel, monthTitle } from "../lib/format";
+import { currentMonth, firstName, money, monthLabel, monthTitle } from "../lib/format";
 import { useAction, useCards, useMe } from "../lib/queries";
 import type { Card, CardSummary } from "../lib/types";
 import { moneyRule, required, useFormValidation, type Rules } from "../lib/validation";
@@ -122,21 +122,31 @@ export default function Cartoes() {
                     <p className="py-3 text-center text-sm text-ink-faint">Nenhuma compra nesta fatura.</p>
                   )}
 
-                  {c.nextInvoices.length > 0 && (
-                    <div className="mt-3 border-t border-brand-950/[0.06] pt-3">
-                      <p className="mb-2 text-xs font-semibold text-ink-faint">Próximas faturas</p>
-                      <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
-                        {c.nextInvoices.map((n) => (
-                          <button key={n.month} onClick={() => setInvoice({ cardId: c.id, month: n.month })}
-                            aria-label={`Ver fatura de ${monthLabel(n.month)}: ${money(n.cents)}, ${n.count} lançamento(s)`}
-                            className="shrink-0 rounded-xl border border-brand-950/10 px-3 py-2 text-left transition-colors duration-150 hover:border-brand-300 hover:bg-brand-50">
-                            <span className="block text-[11px] font-semibold text-ink-faint">{monthTitle(n.month, { short: true })}</span>
-                            <span className="block text-sm font-bold tabular">{money(n.cents)}</span>
-                          </button>
-                        ))}
+                  {(c.invoiceCents > 0 || c.nextInvoices.length > 0) && (() => {
+                    // Fatura do mês selecionado + próximas, em grade que quebra linha (nada fica cortado).
+                    const chips = [
+                      ...(c.invoiceCents > 0 ? [{ month, cents: c.invoiceCents, count: c.items?.length ?? 0, current: true }] : []),
+                      ...c.nextInvoices.map((n) => ({ ...n, current: false })),
+                    ];
+                    return (
+                      <div className="mt-3 border-t border-brand-950/[0.06] pt-3">
+                        <p className="mb-2 text-xs font-semibold text-ink-faint">Faturas</p>
+                        <div className="grid grid-cols-[repeat(auto-fill,minmax(104px,1fr))] gap-2">
+                          {chips.map((n) => (
+                            <button key={n.month} onClick={() => setInvoice({ cardId: c.id, month: n.month })}
+                              aria-label={`Ver fatura de ${monthLabel(n.month)}: ${money(n.cents)}, ${n.count} lançamento(s)`}
+                              className={cx("min-w-0 rounded-xl border px-3 py-2 text-left transition-colors duration-150",
+                                n.current ? "border-brand-300 bg-brand-50 hover:border-brand-500" : "border-brand-950/10 hover:border-brand-300 hover:bg-brand-50")}>
+                              <span className={cx("block truncate text-[11px] font-semibold", n.current ? "text-brand-700" : "text-ink-faint")}>
+                                {monthTitle(n.month, { short: true })}{n.current && month === currentMonth() && " · este mês"}
+                              </span>
+                              <span className="block truncate text-sm font-bold tabular">{money(n.cents)}</span>
+                            </button>
+                          ))}
+                        </div>
                       </div>
-                    </div>
-                  )}
+                    );
+                  })()}
                   <button className="btn-ghost mt-2 w-full" onClick={() => openTx({ type: "EXPENSE", paymentMethod: "CARD", cardId: c.id })}>
                     <Plus size={15} /> Lançar compra neste cartão
                   </button>
