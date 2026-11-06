@@ -316,3 +316,73 @@ export function MenuItem({ icon: Icon, label, onClick, danger }: {
     </button>
   );
 }
+
+/* ---------- Rolagem horizontal ----------
+ * Funciona com mouse: a roda vertical rola para o lado, setas ‹ › aparecem quando há mais conteúdo
+ * e um esmaecido na borda indica que continua. No toque, é a rolagem nativa com "encaixe".
+ */
+export function HScroll({ children, label }: { children: ReactNode; label: string }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [edges, setEdges] = useState({ start: true, end: true });
+
+  const update = useCallback(() => {
+    const el = ref.current;
+    if (!el) return;
+    setEdges({ start: el.scrollLeft <= 2, end: el.scrollLeft + el.clientWidth >= el.scrollWidth - 2 });
+  }, []);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    // Roda do mouse (vertical) rola na horizontal — só quando ainda há para onde ir, senão a página rola normal.
+    const onWheel = (e: WheelEvent) => {
+      if (Math.abs(e.deltaY) <= Math.abs(e.deltaX)) return;
+      const canScroll = e.deltaY > 0 ? el.scrollLeft + el.clientWidth < el.scrollWidth - 1 : el.scrollLeft > 0;
+      if (!canScroll) return;
+      e.preventDefault();
+      el.scrollLeft += e.deltaY;
+    };
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => {
+      ro.disconnect();
+      el.removeEventListener("wheel", onWheel);
+    };
+  }, [update]);
+
+  const page = (dir: 1 | -1) => ref.current?.scrollBy({ left: dir * ref.current.clientWidth * 0.8, behavior: "smooth" });
+
+  return (
+    <div className="relative">
+      <div
+        ref={ref}
+        onScroll={update}
+        role="region"
+        aria-label={label}
+        className="flex snap-x snap-mandatory gap-2 overflow-x-auto scroll-smooth pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+      >
+        {children}
+      </div>
+      {!edges.start && (
+        <>
+          <div className="pointer-events-none absolute inset-y-0 left-0 w-10 bg-gradient-to-r from-white to-transparent" />
+          <button type="button" onClick={() => page(-1)} aria-label="Ver anteriores"
+            className="absolute left-0 top-1/2 grid h-8 w-8 -translate-y-1/2 place-items-center rounded-full border border-brand-950/10 bg-white text-ink-soft shadow-md transition-colors duration-150 hover:text-brand-700">
+            <ChevronLeft size={16} />
+          </button>
+        </>
+      )}
+      {!edges.end && (
+        <>
+          <div className="pointer-events-none absolute inset-y-0 right-0 w-10 bg-gradient-to-l from-white to-transparent" />
+          <button type="button" onClick={() => page(1)} aria-label="Ver próximas"
+            className="absolute right-0 top-1/2 grid h-8 w-8 -translate-y-1/2 place-items-center rounded-full border border-brand-950/10 bg-white text-ink-soft shadow-md transition-colors duration-150 hover:text-brand-700">
+            <ChevronRight size={16} />
+          </button>
+        </>
+      )}
+    </div>
+  );
+}

@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { CheckCircle2, Pencil, Plus } from "lucide-react";
 import { useState } from "react";
-import { Empty, Field, Modal, MonthSwitcher, MoneyInput, PageLoading, Progress, cx, useMonth } from "../components/ui";
+import { Empty, Field, HScroll, Modal, MonthSwitcher, MoneyInput, PageLoading, Progress, cx, useMonth } from "../components/ui";
 import { InvoiceModal } from "../components/InvoiceModal";
 import { useLayout } from "../layouts/AppLayout";
 import { api } from "../lib/api";
@@ -96,8 +96,9 @@ export default function Cartoes() {
                     )}
                   </div>
                   {c.items?.length ? (
+                    <>
                     <ul className="divide-y divide-brand-950/[0.05]">
-                      {c.items.map((o) => (
+                      {c.items.slice(0, 5).map((o) => (
                         <li key={o.transactionId}>
                           <button className="flex w-full items-center gap-2 py-2 text-left text-sm"
                             onClick={() => openTx({ id: o.transactionId, fromMonth: o.month, recurrence: o.recurrence })}>
@@ -110,6 +111,13 @@ export default function Cartoes() {
                         </li>
                       ))}
                     </ul>
+                    {c.items.length > 5 && (
+                      <button className="mt-1 w-full rounded-xl py-2 text-sm font-semibold text-brand-700 transition-colors duration-150 hover:bg-brand-50"
+                        onClick={() => setInvoice({ cardId: c.id, month })}>
+                        Ver todos os lançamentos ({c.items.length})
+                      </button>
+                    )}
+                    </>
                   ) : c.nextInvoices[0] ? (
                     <div className="my-1 rounded-2xl bg-brand-50/70 p-3 text-sm text-brand-900">
                       Nenhuma compra vence em {monthLabel(month, { year: false })}. As compras feitas até o dia {c.closingDay} entram na fatura
@@ -131,11 +139,11 @@ export default function Cartoes() {
                     return (
                       <div className="mt-3 border-t border-brand-950/[0.06] pt-3">
                         <p className="mb-2 text-xs font-semibold text-ink-faint">Faturas</p>
-                        <div className="grid grid-cols-[repeat(auto-fill,minmax(104px,1fr))] gap-2">
+                        <HScroll label={`Faturas do ${c.name}`}>
                           {chips.map((n) => (
                             <button key={n.month} onClick={() => setInvoice({ cardId: c.id, month: n.month })}
                               aria-label={`Ver fatura de ${monthLabel(n.month)}: ${money(n.cents)}, ${n.count} lançamento(s)`}
-                              className={cx("min-w-0 rounded-xl border px-3 py-2 text-left transition-colors duration-150",
+                              className={cx("w-[132px] shrink-0 snap-start rounded-xl border px-3 py-2 text-left transition-colors duration-150",
                                 n.current ? "border-brand-300 bg-brand-50 hover:border-brand-500" : "border-brand-950/10 hover:border-brand-300 hover:bg-brand-50")}>
                               <span className={cx("block truncate text-[11px] font-semibold", n.current ? "text-brand-700" : "text-ink-faint")}>
                                 {monthTitle(n.month, { short: true })}{n.current && month === currentMonth() && " · este mês"}
@@ -143,7 +151,7 @@ export default function Cartoes() {
                               <span className="block truncate text-sm font-bold tabular">{money(n.cents)}</span>
                             </button>
                           ))}
-                        </div>
+                        </HScroll>
                       </div>
                     );
                   })()}
