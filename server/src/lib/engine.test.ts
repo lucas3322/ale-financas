@@ -44,3 +44,12 @@ test("compra parcelada compromete o limite inteiro no mês da compra", () => {
   assert.equal(dez.committedCents, 900000);
   assert.equal(dez.invoiceCents, 100000);
 });
+
+test("compra de novembro num cartão que fecha 28 e vence 10 aparece na próxima fatura (dezembro)", () => {
+  const mais = { ...card, id: "c2", closingDay: 28, dueDay: 10 };
+  const p = tx({ amountCents: 54992, paymentMethod: "CARD", cardId: "c2", card: mais, date: new Date("2026-11-05T00:00:00Z") });
+  const u = cardUsage(mais, [p], [], parseMonth("2026-11"));
+  assert.equal(u.invoiceCents, 0);
+  assert.equal(u.committedCents, 54992);
+  assert.deepEqual(u.nextInvoices, [{ month: "2026-12", cents: 54992, count: 1 }]);
+});

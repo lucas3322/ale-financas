@@ -63,3 +63,18 @@ export function formatInvite(raw: string) {
   const clean = raw.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 8);
   return clean.length > 4 ? `${clean.slice(0, 4)}-${clean.slice(4)}` : clean;
 }
+
+/**
+ * Em qual fatura uma compra no cartão cai (mesma regra da API):
+ * depois do fechamento vai para a fatura seguinte; a fatura "é" do mês em que vence.
+ */
+export function invoiceFor(date: string, card: { closingDay: number; dueDay: number }) {
+  const [y, m, d] = date.split("-").map(Number);
+  if (!y || !m || !d) return null;
+  const shift = (d > card.closingDay ? 1 : 0) + (card.dueDay <= card.closingDay ? 1 : 0);
+  const month = addMonths(`${y}-${String(m).padStart(2, "0")}`, shift);
+  const [yy, mm] = month.split("-").map(Number);
+  const lastDay = new Date(yy, mm, 0).getDate();
+  const due = `${String(Math.min(card.dueDay, lastDay)).padStart(2, "0")}/${String(mm).padStart(2, "0")}`;
+  return { month, due };
+}

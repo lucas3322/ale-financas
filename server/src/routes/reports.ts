@@ -37,6 +37,7 @@ function cardsSummary(data: GroupData, idx: number) {
         committedCents: u.committedCents,
         availableCents: c.limitCents - u.committedCents,
         invoiceCents: u.invoiceCents,
+        nextInvoices: u.nextInvoices,
       };
     });
 }

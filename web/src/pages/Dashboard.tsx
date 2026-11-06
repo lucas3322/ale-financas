@@ -129,7 +129,10 @@ export default function Dashboard() {
                       <span className="text-ink-soft">Usado <b className="text-ink">{money(c.committedCents)}</b></span>
                       <span className={cx(c.availableCents < 0 ? "text-rose-600" : "text-ink-soft")}>Livre <b>{money(c.availableCents)}</b></span>
                     </div>
-                    <p className="mt-1 text-[11px] text-ink-faint">Fatura deste mês: {money(c.invoiceCents)}</p>
+                    <p className="mt-1 text-[11px] text-ink-faint">
+                      Fatura deste mês: {money(c.invoiceCents)}
+                      {c.nextInvoices[0] && <> · próxima ({monthLabel(c.nextInvoices[0].month, { short: true })}): <b className="text-ink-soft">{money(c.nextInvoices[0].cents)}</b></>}
+                    </p>
                   </div>
                 ))}
               </div>

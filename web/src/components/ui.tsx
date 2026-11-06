@@ -66,33 +66,44 @@ export function MoneyInput({ value, onChange, autoFocus, placeholder = "0,00", .
   value: number; onChange: (cents: number) => void; autoFocus?: boolean; placeholder?: string;
   name?: string; onBlur?: () => void; "aria-invalid"?: boolean;
 }) {
-  const [text, setText] = useState(centsToInput(value));
-  useEffect(() => {
-    if (parseMoney(text) !== value) setText(centsToInput(value));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [value]);
+  // Máscara de moeda brasileira: só dígitos, preenchendo pelos centavos (2 → 0,02 → 24,99 → 2.499,00).
+  // O valor exibido é sempre derivado dos centavos — não há texto "solto" para ficar fora do padrão.
+  const display = value ? centsToInput(value) : "";
+  const setFromDigits = (raw: string) => {
+    const digits = raw.replace(/\D/g, "").replace(/^0+/, "").slice(0, 11); // até R$ 999.999.999,99
+    onChange(digits ? Number(digits) : 0);
+  };
   return (
     <div className="relative">
       <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-sm font-semibold text-ink-faint">R$</span>
       <input
         className="field pl-10 tabular font-semibold"
-        inputMode="decimal"
+        inputMode="numeric"
+        autoComplete="off"
         autoFocus={autoFocus}
         placeholder={placeholder}
-        value={text}
+        value={display}
         name={rest.name}
         aria-invalid={rest["aria-invalid"]}
-        onChange={(e) => {
-          // Só dígitos, separadores e no máximo 2 casas decimais.
-          const t = e.target.value.replace(/[^\d.,]/g, "");
-          if (/[.,]\d{3,}$/.test(t) && !/\.\d{3}$/.test(t)) return;
-          setText(t);
-          onChange(parseMoney(t));
+        onChange={(e) => setFromDigits(e.target.value)}
+        onPaste={(e) => {
+          // Colar "1.234,56", "R$ 1234,5" ou "1234.56" vira o valor certo (respeitando a vírgula/ponto decimal).
+          const text = e.clipboardData.getData("text");
+          if (/[.,]\d{1,2}\s*$/.test(text) || !/[.,]/.test(text)) {
+            e.preventDefault();
+            const cents = parseMoney(text);
+            onChange(cents > 0 && cents <= 99_999_999_999 ? cents : 0);
+          }
         }}
-        onBlur={() => {
-          setText(centsToInput(value));
-          rest.onBlur?.();
+        onKeyDown={(e) => {
+          // O cursor fica sempre no fim: editar no meio de "1.234,56" não faz sentido numa máscara de centavos.
+          if (e.key === "ArrowLeft" || e.key === "Home") e.preventDefault();
         }}
+        onFocus={(e) => {
+          const el = e.currentTarget;
+          requestAnimationFrame(() => el.setSelectionRange(el.value.length, el.value.length));
+        }}
+        onBlur={() => rest.onBlur?.()}
       />
     </div>
   );

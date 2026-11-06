@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { api } from "../lib/api";
-import { METHOD_ICON, METHOD_LABEL, money, monthLabel, today } from "../lib/format";
+import { METHOD_ICON, METHOD_LABEL, invoiceFor, money, monthLabel, today } from "../lib/format";
 import { useAction, useCards, useCategories, useMe } from "../lib/queries";
 import { intRange, moneyRule, required, useFormValidation, validDate, type Rules } from "../lib/validation";
 import type { AmountMode, CardSummary, PaymentMethod, PercentBase, Recurrence, Transaction, TxType } from "../lib/types";
@@ -107,6 +107,8 @@ function TransactionForm({ draft, onDone }: { draft?: TxDraft; onDone: () => voi
     ? Math.round(f.amountCents / installments)
     : f.amountCents;
   const selectedCard = cardSummary.data?.find((c) => c.id === f.cardId);
+  const cardDef = activeCards.find((c) => c.id === f.cardId);
+  const invoice = cardDef && !validDate(f.date) ? invoiceFor(f.date, cardDef) : null;
   const remainingInst = Math.max(0, installments - startInst + 1);
   const willCommit = f.recurrence === "INSTALLMENTS" ? perInstallment * remainingInst : perInstallment;
 
@@ -280,6 +282,12 @@ function TransactionForm({ draft, onDone }: { draft?: TxDraft; onDone: () => voi
                       {activeCards.map((c) => <option key={c.id} value={c.id}>💳 {c.name}</option>)}
                     </select>
                   </Field>
+                  {invoice && (
+                    <p className="mt-2 rounded-xl bg-white/70 px-3 py-2 text-xs font-semibold text-brand-900">
+                      🧾 {f.recurrence === "INSTALLMENTS" ? "1ª parcela entra" : "Entra"} na fatura de <b>{monthLabel(invoice.month)}</b> (vence {invoice.due})
+                      {cardDef && Number(f.date.slice(8, 10)) > cardDef.closingDay && <span className="font-normal"> — compra depois do fechamento (dia {cardDef.closingDay})</span>}
+                    </p>
+                  )}
                   {selectedCard && (
                     <div className="mt-2 text-xs text-brand-900">
                       Disponível em {monthLabel(f.date.slice(0, 7), { year: false })}: <b>{money(selectedCard.availableCents)}</b> de {money(selectedCard.limitCents)}

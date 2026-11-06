@@ -137,6 +137,8 @@ export function buildOccurrences(
 export interface CardUsage {
   committedCents: number;
   invoiceCents: number;
+  /** Próximas faturas (meses depois do de referência) com valor, em ordem */
+  nextInvoices: { month: string; cents: number; count: number }[];
 }
 
 /**
@@ -150,13 +152,29 @@ export function cardUsage(card: Card, txs: TxWithRefs[], states: TxOccurrence[],
   const occs = buildOccurrences(cardTxs, states, refIdx - 2, refIdx + 72);
   let committed = 0;
   let invoice = 0;
+  const next = new Map<number, { cents: number; count: number }>();
   for (const o of occs) {
     if (o.monthIdx === refIdx) invoice += o.amountCents;
+    // Faturas futuras: só o que já foi comprado até o mês de referência (assinaturas futuras ainda não existem).
+    if (o.monthIdx > refIdx && o.monthIdx <= refIdx + 12 && !(o.chargeMonthIdx > refIdx && o.tx.recurrence !== "INSTALLMENTS")) {
+      const cur = next.get(o.monthIdx) ?? { cents: 0, count: 0 };
+      cur.cents += o.amountCents;
+      cur.count += 1;
+      next.set(o.monthIdx, cur);
+    }
     if (o.paid) continue;
     if (o.chargeMonthIdx > refIdx && o.tx.recurrence !== "INSTALLMENTS") continue; // recorrência futura ainda não cobrada
     if (dateMonthIdx(o.tx.date) > refIdx) continue; // compra ainda não feita
     if (o.monthIdx < refIdx) continue; // fatura já vencida — tratada como página virada
     committed += o.amountCents;
   }
-  return { committedCents: committed, invoiceCents: invoice };
+  return {
+    committedCents: committed,
+    invoiceCents: invoice,
+    nextInvoices: [...next.entries()]
+      .filter(([, v]) => v.cents > 0)
+      .sort(([a], [b]) => a - b)
+      .slice(0, 6)
+      .map(([m, v]) => ({ month: formatMonth(m), ...v })),
+  };
 }

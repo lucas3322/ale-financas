@@ -317,7 +317,10 @@ export function CardsWidget({ month }: { month: string }) {
           <div className="mb-1.5 flex items-center gap-2 text-sm">
             <span className="h-2.5 w-2.5 rounded-full" style={{ background: c.color }} />
             <span className="flex-1 truncate font-semibold">{c.name}</span>
-            <span className="text-xs text-ink-faint tabular">fatura {money(c.invoiceCents)}</span>
+            <span className="text-xs text-ink-faint tabular">
+              fatura {money(c.invoiceCents)}
+              {c.nextInvoices[0] && ` · próx. ${money(c.nextInvoices[0].cents)}`}
+            </span>
           </div>
           <Progress value={c.committedCents} max={c.limitCents} color={c.color} />
           <div className="mt-1 flex justify-between text-[11px] tabular text-ink-soft">

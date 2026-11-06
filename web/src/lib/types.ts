@@ -46,6 +46,7 @@ export interface Totals {
 export interface CardSummary {
   id: string; name: string; color: string; closingDay: number; dueDay: number; ownerId: string | null;
   limitCents: number; committedCents: number; availableCents: number; invoiceCents: number; items?: Occ[];
+  nextInvoices: { month: string; cents: number; count: number }[];
 }
 
 export interface ForecastRow {
