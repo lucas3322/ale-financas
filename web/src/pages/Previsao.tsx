@@ -7,6 +7,7 @@ import { api } from "../lib/api";
 import { currentMonth, money, monthLabel, monthTitle } from "../lib/format";
 import type { ForecastRow } from "../lib/types";
 import { ForecastChart } from "./Dashboard";
+import { MonthInput } from "../components/DateInput";
 
 type Horizon = "3" | "6" | "12" | "24";
 
@@ -37,8 +38,7 @@ export default function Previsao() {
       <div className="card mb-4 flex flex-wrap items-end gap-3 p-4">
         <label className="block">
           <span className="label">A partir de</span>
-          <input type="month" className="field !w-auto" value={from} min="2000-01" max="2100-12"
-            onChange={(e) => e.target.value && setFrom(e.target.value)} />
+          <MonthInput className="w-48" value={from} onChange={(m) => m && setFrom(m)} />
         </label>
         <div className="min-w-[220px] flex-1 sm:max-w-xs">
           <span className="label">Período</span>

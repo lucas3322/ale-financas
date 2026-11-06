@@ -4,6 +4,7 @@ import { api } from "../lib/api";
 import { METHOD_LABEL, invoiceFor, money, monthLabel, today } from "../lib/format";
 import { AppIcon, MethodIcon } from "./AppIcon";
 import { CategoryPicker } from "./CategoryPicker";
+import { DateInput } from "./DateInput";
 import { useAction, useCards, useCategories, useMe } from "../lib/queries";
 import { intRange, moneyRule, required, useFormValidation, validDate, type Rules } from "../lib/validation";
 import type { AmountMode, CardSummary, PaymentMethod, PercentBase, Recurrence, Transaction, TxType } from "../lib/types";
@@ -234,13 +235,13 @@ function TransactionForm({ draft, onDone }: { draft?: TxDraft; onDone: () => voi
             <MoneyInput {...v.bind("amountCents")} value={f.amountCents} onChange={(c) => set("amountCents", c)} />
           </Field>
           <Field label={isExpense && f.paymentMethod === "CARD" ? "Data da compra" : isExpense ? "Vencimento" : "Data de recebimento"} error={v.error("date")}>
-            <input type="date" className="field" min="2000-01-01" max="2100-12-31" {...v.bind("date")} value={f.date} onChange={(e) => set("date", e.target.value)} />
+            <DateInput {...v.bind("date")} value={f.date} onChange={(d) => set("date", d)} />
           </Field>
         </div>
       )}
       {f.amountMode === "PERCENT" && isExpense && (
         <Field label="Data de pagamento" error={v.error("date")}>
-          <input type="date" className="field" min="2000-01-01" max="2100-12-31" {...v.bind("date")} value={f.date} onChange={(e) => set("date", e.target.value)} />
+          <DateInput {...v.bind("date")} value={f.date} onChange={(d) => set("date", d)} />
         </Field>
       )}
 

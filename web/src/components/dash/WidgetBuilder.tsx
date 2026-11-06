@@ -9,6 +9,7 @@ import { api } from "../../lib/api";
 import { METHOD_LABEL, currentMonth } from "../../lib/format";
 import { METHOD_ICONS } from "../../lib/icons/catalog";
 import { AppIcon } from "../AppIcon";
+import { MonthInput } from "../DateInput";
 import { useCategoryTree } from "../CategoryPicker";
 import { useCards, useCategories, useMe } from "../../lib/queries";
 import type { PaymentMethod, Recurrence } from "../../lib/types";
@@ -198,12 +199,10 @@ function Builder({ initial, onClose, onSave }: { initial: Widget; onClose: () =>
                 {w.query.range.preset === "custom" && (
                   <>
                     <Field label="De" error={v.error("rangeFrom")}>
-                      <input type="month" className="field" {...v.bind("rangeFrom")} value={w.query.range.from ?? ""} min="2000-01" max="2100-12"
-                        onChange={(e) => setQuery({ range: { ...w.query.range, from: e.target.value } })} />
+                      <MonthInput {...v.bind("rangeFrom")} value={w.query.range.from ?? ""} onChange={(m) => setQuery({ range: { ...w.query.range, from: m } })} />
                     </Field>
                     <Field label="Até" error={v.error("rangeTo")} hint="Máximo de 5 anos">
-                      <input type="month" className="field" {...v.bind("rangeTo")} value={w.query.range.to ?? ""} min="2000-01" max="2100-12"
-                        onChange={(e) => setQuery({ range: { ...w.query.range, to: e.target.value } })} />
+                      <MonthInput {...v.bind("rangeTo")} value={w.query.range.to ?? ""} onChange={(m) => setQuery({ range: { ...w.query.range, to: m } })} />
                     </Field>
                   </>
                 )}

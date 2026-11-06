@@ -7,6 +7,7 @@ import { api } from "../lib/api";
 import { METHOD_LABEL, currentMonth, money, monthLabel, today } from "../lib/format";
 import { MethodIcon } from "../components/AppIcon";
 import { CategoryPicker } from "../components/CategoryPicker";
+import { DateInput, MonthInput } from "../components/DateInput";
 import { useAction, useCards, useMe } from "../lib/queries";
 import type { CardSummary, PaymentMethod, ShoppingItem } from "../lib/types";
 import { intRange, moneyRule, useFormValidation, validDate, type Rules } from "../lib/validation";
@@ -217,8 +218,7 @@ function ItemForm({ item, onDone }: { item?: ShoppingItem; onDone: () => void })
           <MoneyInput {...v.bind("estimatedCents")} value={f.estimatedCents} onChange={(c) => set("estimatedCents", c)} />
         </Field>
         <Field label="Quando pretende comprar" optional error={v.error("plannedMonth")}>
-          <input type="month" className="field" min="2000-01" max="2100-12" {...v.bind("plannedMonth")} value={f.plannedMonth}
-            onChange={(e) => set("plannedMonth", e.target.value)} />
+          <MonthInput {...v.bind("plannedMonth")} value={f.plannedMonth} clearable placeholder="Sem data definida" onChange={(m) => set("plannedMonth", m)} />
         </Field>
       </div>
 
@@ -320,8 +320,7 @@ function BuyForm({ item, onDone }: { item: ShoppingItem; onDone: () => void }) {
           <MoneyInput {...v.bind("amountCents")} value={f.amountCents} onChange={(c) => set("amountCents", c)} />
         </Field>
         <Field label="Data da compra" error={v.error("date")}>
-          <input type="date" className="field" min="2000-01-01" max="2100-12-31" {...v.bind("date")} value={f.date}
-            onChange={(e) => set("date", e.target.value)} />
+          <DateInput {...v.bind("date")} value={f.date} onChange={(d) => set("date", d)} />
         </Field>
       </div>
       <div className="grid grid-cols-2 gap-3">
