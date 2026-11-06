@@ -63,9 +63,22 @@ function MonthView() {
   return (
     <>
       <div className="mb-4 grid grid-cols-3 gap-2 sm:gap-3">
-        <Stat label="Entradas" value={t.incomeCents} tone="text-emerald-600" />
-        <Stat label="Saídas" value={t.expenseCents} tone="text-rose-600" />
-        <Stat label="Sobra" value={t.netCents} tone={t.netCents < 0 ? "text-rose-600" : "text-brand-700"} />
+        {month === t.today.slice(0, 7) ? (
+          <>
+            <Stat label="Entradas até hoje" value={t.realizedIncomeCents} tone="text-emerald-600"
+              sub={t.scheduledIncomeCents ? `+ ${money(t.scheduledIncomeCents)} a receber` : undefined} />
+            <Stat label="Saídas até hoje" value={t.realizedExpenseCents} tone="text-rose-600"
+              sub={t.scheduledExpenseCents ? `+ ${money(t.scheduledExpenseCents)} agendado` : undefined} />
+            <Stat label="Sobra até hoje" value={t.realizedNetCents} tone={t.realizedNetCents < 0 ? "text-rose-600" : "text-brand-700"}
+              sub={`Previsto no mês: ${money(t.netCents)}`} />
+          </>
+        ) : (
+          <>
+            <Stat label="Entradas" value={t.incomeCents} tone="text-emerald-600" />
+            <Stat label="Saídas" value={t.expenseCents} tone="text-rose-600" />
+            <Stat label={month > t.today.slice(0, 7) ? "Sobra prevista" : "Sobra"} value={t.netCents} tone={t.netCents < 0 ? "text-rose-600" : "text-brand-700"} />
+          </>
+        )}
       </div>
 
       <div className="mb-4 flex flex-wrap gap-2">
@@ -103,12 +116,12 @@ function MonthView() {
       ) : (
         <div className="space-y-4">
           {incomes.length > 0 && (
-            <OccList title="Entradas" items={incomes} onToggle={(o) => setOcc.mutate({ o, patch: { paid: !o.paid } })}
+            <OccList title="Entradas" today={t.today} items={incomes} onToggle={(o) => setOcc.mutate({ o, patch: { paid: !o.paid } })}
               onEdit={(o) => openTx({ id: o.transactionId, fromMonth: o.month, recurrence: o.recurrence })}
               onAdjust={setAdjust} onSkip={(o) => setOcc.mutate({ o, patch: { skipped: !o.skipped } })} />
           )}
           {expenses.length > 0 && (
-            <OccList title="Saídas" items={expenses} onToggle={(o) => setOcc.mutate({ o, patch: { paid: !o.paid } })}
+            <OccList title="Saídas" today={t.today} items={expenses} onToggle={(o) => setOcc.mutate({ o, patch: { paid: !o.paid } })}
               onEdit={(o) => openTx({ id: o.transactionId, fromMonth: o.month, recurrence: o.recurrence })}
               onAdjust={setAdjust} onSkip={(o) => setOcc.mutate({ o, patch: { skipped: !o.skipped } })} />
           )}
@@ -120,17 +133,18 @@ function MonthView() {
   );
 }
 
-function Stat({ label, value, tone }: { label: string; value: number; tone: string }) {
+function Stat({ label, value, tone, sub }: { label: string; value: number; tone: string; sub?: string }) {
   return (
     <div className="card p-3 sm:p-4">
       <p className="text-[11px] font-semibold text-ink-faint sm:text-xs">{label}</p>
       <p className={cx("mt-0.5 truncate text-sm font-extrabold tabular sm:text-lg", tone)}>{money(value)}</p>
+      {sub && <p className="mt-0.5 truncate text-[10px] font-medium text-ink-faint sm:text-[11px]">{sub}</p>}
     </div>
   );
 }
 
-function OccList({ title, items, onToggle, onEdit, onAdjust, onSkip }: {
-  title: string; items: Occ[]; onToggle: (o: Occ) => void; onEdit: (o: Occ) => void; onAdjust: (o: Occ) => void; onSkip: (o: Occ) => void;
+function OccList({ title, today, items, onToggle, onEdit, onAdjust, onSkip }: {
+  title: string; today: string; items: Occ[]; onToggle: (o: Occ) => void; onEdit: (o: Occ) => void; onAdjust: (o: Occ) => void; onSkip: (o: Occ) => void;
 }) {
   const total = items.filter((o) => !o.skipped).reduce((s, o) => s + o.amountCents, 0);
   return (
@@ -140,14 +154,14 @@ function OccList({ title, items, onToggle, onEdit, onAdjust, onSkip }: {
         <p className="text-sm font-bold tabular">{money(total)}</p>
       </div>
       <ul className="divide-y divide-brand-950/[0.05]">
-        {items.map((o) => <OccRow key={o.transactionId} o={o} onToggle={onToggle} onEdit={onEdit} onAdjust={onAdjust} onSkip={onSkip} />)}
+        {items.map((o) => <OccRow key={o.transactionId} o={o} today={today} onToggle={onToggle} onEdit={onEdit} onAdjust={onAdjust} onSkip={onSkip} />)}
       </ul>
     </section>
   );
 }
 
-function OccRow({ o, onToggle, onEdit, onAdjust, onSkip }: {
-  o: Occ; onToggle: (o: Occ) => void; onEdit: (o: Occ) => void; onAdjust: (o: Occ) => void; onSkip: (o: Occ) => void;
+function OccRow({ o, today, onToggle, onEdit, onAdjust, onSkip }: {
+  o: Occ; today: string; onToggle: (o: Occ) => void; onEdit: (o: Occ) => void; onAdjust: (o: Occ) => void; onSkip: (o: Occ) => void;
 }) {
   const income = o.type === "INCOME";
   const isRecurring = o.recurrence !== "ONCE";
@@ -182,6 +196,14 @@ function OccRow({ o, onToggle, onEdit, onAdjust, onSkip }: {
           {o.amountMode === "PERCENT" && ` · ${(o.percentBp ?? 0) / 100}% da renda`}
           {o.skipped && " · pulado neste mês"}
         </p>
+        {!o.paid && !o.skipped && o.dueDate > today && (
+          <span className="chip mt-1 bg-sky-50 text-sky-700" title="Ainda não entra no saldo de hoje">
+            🗓️ {income ? "a receber" : "agendado"} · {new Date(`${o.dueDate}T12:00:00`).toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })}
+          </span>
+        )}
+        {!o.paid && !o.skipped && !income && o.dueDate < today && (
+          <span className="chip mt-1 bg-amber-50 text-amber-700" title="A data passou e não foi marcado como pago">⚠️ vencido</span>
+        )}
       </button>
       <div className="text-right">
         <p className={cx("text-sm font-bold tabular", income ? "text-emerald-600" : "text-ink")}>

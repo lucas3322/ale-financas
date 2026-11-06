@@ -5,6 +5,7 @@ import { METHOD_ICON, METHOD_LABEL, invoiceFor, money, monthLabel, today } from 
 import { useAction, useCards, useCategories, useMe } from "../lib/queries";
 import { intRange, moneyRule, required, useFormValidation, validDate, type Rules } from "../lib/validation";
 import type { AmountMode, CardSummary, PaymentMethod, PercentBase, Recurrence, Transaction, TxType } from "../lib/types";
+import { QuickCategory } from "./QuickCategory";
 import { Field, Modal, MoneyInput, PageLoading, Segmented, cx, useMonth } from "./ui";
 
 export type TxDraft = Partial<Transaction> & { id?: string; /** mês a partir do qual a edição vale */ fromMonth?: string };
@@ -82,6 +83,7 @@ function TransactionForm({ draft, onDone }: { draft?: TxDraft; onDone: () => voi
   const set = <K extends keyof FormState>(k: K, v: FormState[K]) => setF((s) => ({ ...s, [k]: v }));
   const isEdit = !!draft?.id;
   const isExpense = f.type === "EXPENSE";
+  const [newCategory, setNewCategory] = useState(false);
   const [scope, setScope] = useState<"future" | "all">(draft?.fromMonth ? "future" : "all");
 
   const cardSummary = useQuery({
@@ -181,7 +183,7 @@ function TransactionForm({ draft, onDone }: { draft?: TxDraft; onDone: () => voi
     <form ref={v.formRef} noValidate className="space-y-4" onSubmit={(e) => { e.preventDefault(); if (v.validate()) save.mutate(undefined); }}>
       <Segmented
         value={f.type}
-        onChange={(v) => setF((s) => ({ ...s, type: v, categoryId: null, amountMode: "FIXED", isSalary: v === "INCOME" && !s.description }))}
+        onChange={(v) => { setNewCategory(false); setF((s) => ({ ...s, type: v, categoryId: null, amountMode: "FIXED", isSalary: v === "INCOME" && !s.description })); }}
         options={[{ value: "EXPENSE", label: "↓ Saída" }, { value: "INCOME", label: "↑ Entrada" }]}
       />
 
@@ -248,12 +250,23 @@ function TransactionForm({ draft, onDone }: { draft?: TxDraft; onDone: () => voi
           </select>
         </Field>
         <Field label="Categoria">
-          <select className="field" value={f.categoryId ?? ""} onChange={(e) => set("categoryId", e.target.value || null)}>
+          <select className="field" value={newCategory ? "__new" : f.categoryId ?? ""}
+            onChange={(e) => {
+              if (e.target.value === "__new") return setNewCategory(true);
+              setNewCategory(false);
+              set("categoryId", e.target.value || null);
+            }}>
             <option value="">Sem categoria</option>
             {cats.map((c) => <option key={c.id} value={c.id}>{c.icon} {c.name}</option>)}
+            <option value="__new">＋ Nova categoria…</option>
           </select>
         </Field>
       </div>
+      {newCategory && (
+        <QuickCategory kind={f.type}
+          onCreated={(id) => { set("categoryId", id); setNewCategory(false); }}
+          onCancel={() => setNewCategory(false)} />
+      )}
 
       {isExpense && (
         <div>

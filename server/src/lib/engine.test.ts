@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { buildOccurrences, cardInvoiceShift, cardUsage, type TxWithRefs } from "./engine.js";
+import { buildOccurrences, cardInvoiceShift, cardUsage, isRealized, type TxWithRefs } from "./engine.js";
 import { parseMonth } from "./months.js";
 
 const card = { id: "c1", groupId: "g", ownerId: null, name: "Nubank", limitCents: 500000, closingDay: 25, dueDay: 5, color: "#8A05BE", archived: false, createdAt: new Date() };
@@ -52,4 +52,19 @@ test("compra de novembro num cartão que fecha 28 e vence 10 aparece na próxima
   assert.equal(u.invoiceCents, 0);
   assert.equal(u.committedCents, 54992);
   assert.deepEqual(u.nextInvoices, [{ month: "2026-12", cents: 54992, count: 1 }]);
+});
+
+test("pagamento agendado só conta no saldo até hoje quando a data chega (ou se for marcado pago)", () => {
+  const conta = tx({ amountCents: 30000, date: new Date("2026-11-20T00:00:00Z") });
+  const [o] = buildOccurrences([conta], [], parseMonth("2026-11"), parseMonth("2026-11"));
+  assert.equal(o.dueDate, "2026-11-20");
+  assert.equal(isRealized(o, "2026-11-10"), false); // agendado
+  assert.equal(isRealized(o, "2026-11-20"), true); // chegou o dia
+  assert.equal(isRealized({ ...o, paid: true }, "2026-11-10"), true); // pagou adiantado
+});
+
+test("vencimento dia 31 em fevereiro cai no último dia do mês", () => {
+  const conta = tx({ amountCents: 1000, recurrence: "MONTHLY", date: new Date("2027-01-31T00:00:00Z") });
+  const occs = buildOccurrences([conta], [], parseMonth("2027-02"), parseMonth("2027-02"));
+  assert.equal(occs[0].dueDate, "2027-02-28");
 });

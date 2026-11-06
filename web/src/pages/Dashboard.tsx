@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { ArrowDownRight, ArrowUpRight, Check, ChevronRight, CreditCard, Plus } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Bar, CartesianGrid, Cell, ComposedChart, Line, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { CountUp } from "../components/dash/WidgetView";
 import { Empty, MonthSwitcher, PageLoading, Progress, cx, useMonth } from "../components/ui";
 import { useLayout } from "../layouts/AppLayout";
 import { api } from "../lib/api";
@@ -55,22 +56,49 @@ export default function Dashboard() {
           {/* Saldo do mês */}
           <section className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-brand-600 via-brand-700 to-brand-900 p-5 text-white shadow-[0_20px_40px_-20px_rgba(130,10,209,.7)] sm:p-6 lg:col-span-2">
             <div className="pointer-events-none absolute -right-16 -top-20 h-56 w-56 rounded-full bg-white/10 blur-2xl" />
-            <p className="text-sm font-medium text-white/70">Sobra prevista em {monthLabel(d.month, { year: false })}</p>
-            <p className={cx("mt-1 text-4xl font-extrabold tracking-tight tabular sm:text-5xl", d.totals.netCents < 0 && "text-rose-200")}>
-              {money(d.totals.netCents)}
-            </p>
-            <div className="mt-5 grid grid-cols-2 gap-3">
-              <div className="rounded-2xl bg-white/10 p-3 backdrop-blur-sm">
-                <p className="flex items-center gap-1 text-xs text-white/70"><ArrowUpRight size={14} /> Entradas</p>
-                <p className="mt-0.5 text-lg font-bold tabular">{money(d.totals.incomeCents)}</p>
-                <p className="text-[11px] text-white/60">{money(d.totals.receivedCents)} recebido</p>
-              </div>
-              <div className="rounded-2xl bg-white/10 p-3 backdrop-blur-sm">
-                <p className="flex items-center gap-1 text-xs text-white/70"><ArrowDownRight size={14} /> Saídas</p>
-                <p className="mt-0.5 text-lg font-bold tabular">{money(d.totals.expenseCents)}</p>
-                <p className="text-[11px] text-white/60">{money(d.totals.pendingCents)} a pagar</p>
-              </div>
-            </div>
+            {(() => {
+              const t = d.totals;
+              const phase = d.month < t.today.slice(0, 7) ? "past" : d.month > t.today.slice(0, 7) ? "future" : "current";
+              const main = phase === "future" ? t.netCents : t.realizedNetCents;
+              const todayLabel = new Date(`${t.today}T12:00:00`).toLocaleDateString("pt-BR", { day: "2-digit", month: "short" });
+              return (
+                <>
+                  <p className="text-sm font-medium text-white/70">
+                    {phase === "current" ? `Saldo do mês até hoje (${todayLabel})` : phase === "past" ? `Sobra de ${monthLabel(d.month, { year: false })}` : `Sobra prevista em ${monthLabel(d.month, { year: false })}`}
+                  </p>
+                  <p className={cx("mt-1 text-4xl font-extrabold tracking-tight tabular sm:text-5xl", main < 0 && "text-rose-200")}>
+                    <CountUp value={main} format={money} />
+                  </p>
+                  {phase === "current" && (
+                    <p className="mt-1 text-sm text-white/75">
+                      Previsto no fim do mês: <b className="tabular text-white">{money(t.netCents)}</b>
+                      {t.scheduledExpenseCents > 0 && <> · {money(t.scheduledExpenseCents)} em pagamentos agendados</>}
+                    </p>
+                  )}
+                  <div className="mt-5 grid grid-cols-2 gap-3">
+                    <div className="rounded-2xl bg-white/10 p-3 backdrop-blur-sm">
+                      <p className="flex items-center gap-1 text-xs text-white/70"><ArrowUpRight size={14} /> Entradas</p>
+                      <p className="mt-0.5 text-lg font-bold tabular">{money(phase === "current" ? t.realizedIncomeCents : t.incomeCents)}</p>
+                      <p className="text-[11px] text-white/60">
+                        {phase === "current" ? (t.scheduledIncomeCents ? `+ ${money(t.scheduledIncomeCents)} a receber` : "tudo recebido") : `${money(t.receivedCents)} marcado como recebido`}
+                      </p>
+                    </div>
+                    <div className="rounded-2xl bg-white/10 p-3 backdrop-blur-sm">
+                      <p className="flex items-center gap-1 text-xs text-white/70"><ArrowDownRight size={14} /> Saídas</p>
+                      <p className="mt-0.5 text-lg font-bold tabular">{money(phase === "current" ? t.realizedExpenseCents : t.expenseCents)}</p>
+                      <p className="text-[11px] text-white/60">
+                        {phase === "current" ? (t.scheduledExpenseCents ? `+ ${money(t.scheduledExpenseCents)} agendado` : "nada agendado") : `${money(t.pendingCents)} a pagar`}
+                      </p>
+                    </div>
+                  </div>
+                  {phase !== "future" && t.overdueCents > 0 && (
+                    <p className="mt-3 rounded-xl bg-amber-400/20 px-3 py-2 text-xs font-semibold text-amber-100">
+                      ⚠️ {money(t.overdueCents)} em contas com data vencida ainda não marcadas como pagas
+                    </p>
+                  )}
+                </>
+              );
+            })()}
             {d.totals.expenseCents > 0 && (
               <div className="mt-4">
                 <div className="mb-1 flex justify-between text-[11px] text-white/70">

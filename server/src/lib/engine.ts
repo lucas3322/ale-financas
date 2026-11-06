@@ -1,5 +1,5 @@
 import type { Card, Category, Transaction, TxOccurrence, User } from "@prisma/client";
-import { dateMonthIdx, formatMonth } from "./months.js";
+import { dateInMonth, dateMonthIdx, formatMonth } from "./months.js";
 
 /**
  * Motor de cálculo: transforma as definições de lançamentos (únicos, recorrentes,
@@ -20,6 +20,8 @@ export interface Occurrence {
   chargeMonthIdx: number;
   /** Dia de vencimento/recebimento no mês */
   day: number;
+  /** Data efetiva no calendário ("YYYY-MM-DD"): quando o dinheiro entra/sai */
+  dueDate: string;
   /** Ex.: "3/6" para parcelado */
   installmentLabel: string | null;
   installmentNo: number | null;
@@ -99,6 +101,7 @@ export function buildOccurrences(
         monthIdx: slot.monthIdx,
         chargeMonthIdx: slot.chargeMonthIdx,
         day,
+        dueDate: dateInMonth(slot.monthIdx, day),
         installmentNo: slot.installmentNo,
         installmentLabel: slot.installmentNo ? `${slot.installmentNo}/${tx.totalMonths}` : null,
         amountCents: st?.amountCents ?? (tx.amountMode === "FIXED" ? tx.amountCents : 0),
@@ -132,6 +135,14 @@ export function buildOccurrences(
 
   const result = opts.includeSkipped ? out : out.filter((o) => !o.skipped);
   return result.sort((a, b) => a.monthIdx - b.monthIdx || a.day - b.day);
+}
+
+/**
+ * Já aconteceu? Conta no "saldo até hoje" quem já foi pago/recebido
+ * ou cuja data já chegou. Pagamento agendado para o futuro só entra quando a data chegar.
+ */
+export function isRealized(o: Pick<Occurrence, "paid" | "dueDate">, today: string) {
+  return o.paid || o.dueDate <= today;
 }
 
 export interface CardUsage {

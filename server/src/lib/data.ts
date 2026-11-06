@@ -26,6 +26,7 @@ export function serializeOcc(o: Occurrence) {
     transactionId: o.transactionId,
     month: o.month,
     day: o.day,
+    dueDate: o.dueDate,
     installmentLabel: o.installmentLabel,
     amountCents: o.amountCents,
     overridden: o.overridden,

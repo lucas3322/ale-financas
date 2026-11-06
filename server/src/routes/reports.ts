@@ -2,16 +2,28 @@ import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { loadGroup, occurrencesFor, serializeOcc, sumBy, type GroupData } from "../lib/data.js";
 import { prisma } from "../lib/db.js";
-import { cardUsage, type Occurrence } from "../lib/engine.js";
+import { cardUsage, isRealized, type Occurrence } from "../lib/engine.js";
 import { notFound } from "../lib/http.js";
-import { currentMonthIdx, formatMonth, parseMonth } from "../lib/months.js";
+import { currentMonthIdx, formatMonth, parseMonth, todayBR } from "../lib/months.js";
 
 const monthStr = z.string().regex(/^\d{4}-\d{2}$/);
 
-function totals(occs: Occurrence[]) {
+function totals(occs: Occurrence[], today = todayBR()) {
   const income = sumBy(occs, (o) => o.tx.type === "INCOME");
   const expense = sumBy(occs, (o) => o.tx.type === "EXPENSE");
+  const realizedIncome = sumBy(occs, (o) => o.tx.type === "INCOME" && isRealized(o, today));
+  const realizedExpense = sumBy(occs, (o) => o.tx.type === "EXPENSE" && isRealized(o, today));
   return {
+    today,
+    // Até hoje: só o que já aconteceu (data chegou ou foi marcado como pago/recebido)
+    realizedIncomeCents: realizedIncome,
+    realizedExpenseCents: realizedExpense,
+    realizedNetCents: realizedIncome - realizedExpense,
+    // Agendado: saídas com data futura ainda não pagas
+    scheduledExpenseCents: sumBy(occs, (o) => o.tx.type === "EXPENSE" && !isRealized(o, today)),
+    scheduledIncomeCents: sumBy(occs, (o) => o.tx.type === "INCOME" && !isRealized(o, today)),
+    // Vencido: data já passou e não foi marcado como pago
+    overdueCents: sumBy(occs, (o) => o.tx.type === "EXPENSE" && !o.paid && o.dueDate < today),
     incomeCents: income,
     expenseCents: expense,
     netCents: income - expense,

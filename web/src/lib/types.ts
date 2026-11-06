@@ -28,7 +28,7 @@ export interface Transaction {
 }
 
 export interface Occ {
-  transactionId: string; month: string; day: number; installmentLabel: string | null;
+  transactionId: string; month: string; day: number; dueDate: string; installmentLabel: string | null;
   amountCents: number; overridden: boolean; paid: boolean; skipped: boolean;
   type: TxType; description: string; isSalary: boolean; recurrence: Recurrence; totalMonths: number | null;
   amountMode: AmountMode; percentBp: number | null; percentBase: PercentBase | null;
@@ -41,6 +41,14 @@ export interface Occ {
 export interface Totals {
   incomeCents: number; expenseCents: number; netCents: number;
   receivedCents: number; paidCents: number; pendingCents: number;
+  /** "Hoje" no fuso do Brasil, usado no cálculo do realizado */
+  today: string;
+  /** Até hoje: só o que já aconteceu (data chegou ou foi marcado como pago/recebido) */
+  realizedIncomeCents: number; realizedExpenseCents: number; realizedNetCents: number;
+  /** Com data futura e ainda não pago/recebido */
+  scheduledExpenseCents: number; scheduledIncomeCents: number;
+  /** Saídas com data vencida e não marcadas como pagas */
+  overdueCents: number;
 }
 
 export interface CardSummary {
