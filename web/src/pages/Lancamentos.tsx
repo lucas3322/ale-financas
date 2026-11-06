@@ -1,0 +1,310 @@
+import { useQuery } from "@tanstack/react-query";
+import { Check, MoreVertical, Pencil, Plus, Repeat, Search, SkipForward, Undo2, Wallet } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Empty, Field, Modal, MonthSwitcher, MoneyInput, PageLoading, Segmented, cx, useMonth } from "../components/ui";
+import { useLayout } from "../layouts/AppLayout";
+import { api } from "../lib/api";
+import { METHOD_ICON, METHOD_LABEL, firstName, money, monthLabel } from "../lib/format";
+import { useAction, useMe } from "../lib/queries";
+import type { Occ, Totals, Transaction } from "../lib/types";
+import { moneyRule, useFormValidation } from "../lib/validation";
+
+type MonthData = { month: string; totals: Totals; items: Occ[] };
+type Filter = { q: string; type: "ALL" | "INCOME" | "EXPENSE"; status: "ALL" | "PENDING" | "PAID"; person: string };
+
+export default function Lancamentos() {
+  const [tab, setTab] = useState<"month" | "fixed">("month");
+  const { openTx } = useLayout();
+  return (
+    <div>
+      <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-2xl font-extrabold tracking-tight">Lançamentos</h1>
+        <div className="flex items-center gap-2">
+          {tab === "month" && <MonthSwitcher />}
+          <button className="btn-primary hidden sm:inline-flex" onClick={() => openTx()}><Plus size={16} /> Novo</button>
+        </div>
+      </div>
+      <div className="mb-4 max-w-sm">
+        <Segmented value={tab} onChange={setTab} options={[{ value: "month", label: "Do mês" }, { value: "fixed", label: "Fixos e parcelados" }]} />
+      </div>
+      {tab === "month" ? <MonthView /> : <FixedView />}
+    </div>
+  );
+}
+
+function MonthView() {
+  const { month } = useMonth();
+  const { data: me } = useMe();
+  const { openTx } = useLayout();
+  const [filter, setFilter] = useState<Filter>({ q: "", type: "ALL", status: "ALL", person: "" });
+  const [adjust, setAdjust] = useState<Occ | null>(null);
+  const q = useQuery({ queryKey: ["month", month], queryFn: () => api.get<MonthData>(`/months/${month}`) });
+
+  const setOcc = useAction((p: { o: Occ; patch: Partial<Pick<Occ, "paid" | "skipped">> & { amountCents?: number | null } }) =>
+    api.put("/occurrences", { transactionId: p.o.transactionId, month: p.o.month, ...p.patch }),
+  );
+
+  const items = useMemo(() => {
+    const term = filter.q.trim().toLowerCase();
+    return (q.data?.items ?? []).filter((o) =>
+      (filter.type === "ALL" || o.type === filter.type) &&
+      (filter.status === "ALL" || (filter.status === "PAID" ? o.paid : !o.paid && !o.skipped)) &&
+      (!filter.person || (filter.person === "shared" ? !o.person : o.person?.id === filter.person)) &&
+      (!term || o.description.toLowerCase().includes(term) || o.category?.name.toLowerCase().includes(term)),
+    );
+  }, [q.data, filter]);
+
+  if (q.isLoading || !q.data) return <PageLoading />;
+  const t = q.data.totals;
+  const incomes = items.filter((o) => o.type === "INCOME");
+  const expenses = items.filter((o) => o.type === "EXPENSE");
+  const filtered = filter.q || filter.type !== "ALL" || filter.status !== "ALL" || filter.person;
+
+  return (
+    <>
+      <div className="mb-4 grid grid-cols-3 gap-2 sm:gap-3">
+        <Stat label="Entradas" value={t.incomeCents} tone="text-emerald-600" />
+        <Stat label="Saídas" value={t.expenseCents} tone="text-rose-600" />
+        <Stat label="Sobra" value={t.netCents} tone={t.netCents < 0 ? "text-rose-600" : "text-brand-700"} />
+      </div>
+
+      <div className="mb-4 flex flex-wrap gap-2">
+        <div className="relative min-w-[180px] flex-1">
+          <Search size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink-faint" />
+          <input className="field pl-9" placeholder="Buscar descrição ou categoria" value={filter.q} onChange={(e) => setFilter({ ...filter, q: e.target.value })} />
+        </div>
+        <select className="field !w-auto" value={filter.type} onChange={(e) => setFilter({ ...filter, type: e.target.value as Filter["type"] })} aria-label="Tipo">
+          <option value="ALL">Entradas e saídas</option>
+          <option value="INCOME">Só entradas</option>
+          <option value="EXPENSE">Só saídas</option>
+        </select>
+        <select className="field !w-auto" value={filter.status} onChange={(e) => setFilter({ ...filter, status: e.target.value as Filter["status"] })} aria-label="Situação">
+          <option value="ALL">Todas</option>
+          <option value="PENDING">A pagar / receber</option>
+          <option value="PAID">Pagas / recebidas</option>
+        </select>
+        <select className="field !w-auto" value={filter.person} onChange={(e) => setFilter({ ...filter, person: e.target.value })} aria-label="Pessoa">
+          <option value="">Todos</option>
+          {me?.members.map((m) => <option key={m.id} value={m.id}>{firstName(m.name)}</option>)}
+          <option value="shared">Casa</option>
+        </select>
+      </div>
+
+      {items.length === 0 ? (
+        <div className="card">
+          {filtered ? (
+            <Empty icon="🔎" title="Nada encontrado" text="Nenhum lançamento bate com os filtros."
+              action={<button className="btn-outline" onClick={() => setFilter({ q: "", type: "ALL", status: "ALL", person: "" })}>Limpar filtros</button>} />
+          ) : (
+            <Empty icon="🗓️" title={`Nada em ${monthLabel(month)}`} text="Adicione salários, contas e compras deste mês."
+              action={<button className="btn-primary" onClick={() => openTx()}><Plus size={16} /> Novo lançamento</button>} />
+          )}
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {incomes.length > 0 && (
+            <OccList title="Entradas" items={incomes} onToggle={(o) => setOcc.mutate({ o, patch: { paid: !o.paid } })}
+              onEdit={(o) => openTx({ id: o.transactionId, fromMonth: o.month, recurrence: o.recurrence })}
+              onAdjust={setAdjust} onSkip={(o) => setOcc.mutate({ o, patch: { skipped: !o.skipped } })} />
+          )}
+          {expenses.length > 0 && (
+            <OccList title="Saídas" items={expenses} onToggle={(o) => setOcc.mutate({ o, patch: { paid: !o.paid } })}
+              onEdit={(o) => openTx({ id: o.transactionId, fromMonth: o.month, recurrence: o.recurrence })}
+              onAdjust={setAdjust} onSkip={(o) => setOcc.mutate({ o, patch: { skipped: !o.skipped } })} />
+          )}
+        </div>
+      )}
+
+      <AdjustModal occ={adjust} onClose={() => setAdjust(null)} />
+    </>
+  );
+}
+
+function Stat({ label, value, tone }: { label: string; value: number; tone: string }) {
+  return (
+    <div className="card p-3 sm:p-4">
+      <p className="text-[11px] font-semibold text-ink-faint sm:text-xs">{label}</p>
+      <p className={cx("mt-0.5 truncate text-sm font-extrabold tabular sm:text-lg", tone)}>{money(value)}</p>
+    </div>
+  );
+}
+
+function OccList({ title, items, onToggle, onEdit, onAdjust, onSkip }: {
+  title: string; items: Occ[]; onToggle: (o: Occ) => void; onEdit: (o: Occ) => void; onAdjust: (o: Occ) => void; onSkip: (o: Occ) => void;
+}) {
+  const total = items.filter((o) => !o.skipped).reduce((s, o) => s + o.amountCents, 0);
+  return (
+    <section className="card overflow-hidden">
+      <div className="flex items-center justify-between border-b border-brand-950/[0.05] px-4 py-3">
+        <h2 className="font-bold">{title} <span className="ml-1 text-xs font-semibold text-ink-faint">{items.length}</span></h2>
+        <p className="text-sm font-bold tabular">{money(total)}</p>
+      </div>
+      <ul className="divide-y divide-brand-950/[0.05]">
+        {items.map((o) => <OccRow key={o.transactionId} o={o} onToggle={onToggle} onEdit={onEdit} onAdjust={onAdjust} onSkip={onSkip} />)}
+      </ul>
+    </section>
+  );
+}
+
+function OccRow({ o, onToggle, onEdit, onAdjust, onSkip }: {
+  o: Occ; onToggle: (o: Occ) => void; onEdit: (o: Occ) => void; onAdjust: (o: Occ) => void; onSkip: (o: Occ) => void;
+}) {
+  const [menu, setMenu] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!menu) return;
+    const close = (e: MouseEvent) => !ref.current?.contains(e.target as Node) && setMenu(false);
+    document.addEventListener("mousedown", close);
+    return () => document.removeEventListener("mousedown", close);
+  }, [menu]);
+  const income = o.type === "INCOME";
+  const isRecurring = o.recurrence !== "ONCE";
+
+  return (
+    <li className={cx("flex items-center gap-3 px-4 py-3", o.skipped && "opacity-50")}>
+      <button
+        onClick={() => onToggle(o)}
+        disabled={o.skipped}
+        aria-label={o.paid ? "Desmarcar" : income ? "Marcar como recebido" : "Marcar como pago"}
+        title={o.paid ? "Desmarcar" : income ? "Marcar como recebido" : "Marcar como pago"}
+        className={cx(
+          "grid h-6 w-6 shrink-0 place-items-center rounded-full border-2 transition",
+          o.paid ? "border-emerald-500 bg-emerald-500 text-white" : "border-brand-200 text-transparent hover:border-brand-500 hover:text-brand-400",
+        )}
+      >
+        <Check size={14} strokeWidth={3} />
+      </button>
+      <div className="grid h-9 w-9 shrink-0 place-items-center rounded-xl text-base" style={{ background: `${o.category?.color ?? "#94A3B8"}1F` }}>
+        {o.category?.icon ?? (income ? "💰" : "📦")}
+      </div>
+      <button className="min-w-0 flex-1 text-left" onClick={() => onEdit(o)}>
+        <p className={cx("truncate text-sm font-semibold", o.paid && "text-ink-soft line-through decoration-ink-faint/50", o.skipped && "line-through")}>
+          {o.description}
+          {o.installmentLabel && <span className="ml-1.5 chip bg-brand-50 text-brand-700">{o.installmentLabel}</span>}
+          {o.recurrence === "MONTHLY" && <Repeat size={12} className="ml-1.5 inline text-ink-faint" />}
+        </p>
+        <p className="truncate text-xs text-ink-faint">
+          dia {o.day}
+          {o.person ? ` · ${firstName(o.person.name)}` : " · Casa"}
+          {o.card ? ` · 💳 ${o.card.name}` : o.paymentMethod ? ` · ${METHOD_ICON[o.paymentMethod]} ${METHOD_LABEL[o.paymentMethod]}` : ""}
+          {o.amountMode === "PERCENT" && ` · ${(o.percentBp ?? 0) / 100}% da renda`}
+          {o.skipped && " · pulado neste mês"}
+        </p>
+      </button>
+      <div className="text-right">
+        <p className={cx("text-sm font-bold tabular", income ? "text-emerald-600" : "text-ink")}>
+          {income ? "+" : "−"} {money(o.amountCents)}
+        </p>
+        {o.overridden && <p className="text-[10px] font-semibold text-amber-600">valor ajustado</p>}
+      </div>
+      <div className="relative" ref={ref}>
+        <button className="btn-ghost !p-1.5" onClick={() => setMenu((v) => !v)} aria-label="Mais ações"><MoreVertical size={16} /></button>
+        {menu && (
+          <div className="absolute right-0 top-full z-20 mt-1 w-56 rounded-xl border border-brand-950/10 bg-white p-1 shadow-xl" onClick={() => setMenu(false)}>
+            <MenuItem icon={Pencil} label={isRecurring ? "Editar (este e próximos)" : "Editar"} onClick={() => onEdit(o)} />
+            {isRecurring && <MenuItem icon={Wallet} label="Mudar valor só deste mês" onClick={() => onAdjust(o)} />}
+            {isRecurring && (
+              <MenuItem icon={o.skipped ? Undo2 : SkipForward} label={o.skipped ? "Voltar a cobrar neste mês" : "Pular só este mês"} onClick={() => onSkip(o)} />
+            )}
+          </div>
+        )}
+      </div>
+    </li>
+  );
+}
+
+function MenuItem({ icon: Icon, label, onClick }: { icon: typeof Pencil; label: string; onClick: () => void }) {
+  return (
+    <button onClick={onClick} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm hover:bg-brand-50">
+      <Icon size={15} className="text-ink-faint" /> {label}
+    </button>
+  );
+}
+
+/** Ajusta o valor de uma ocorrência só naquele mês (ex.: conta de luz veio diferente, salário teve bônus). */
+function AdjustModal({ occ, onClose }: { occ: Occ | null; onClose: () => void }) {
+  const [values, setValues] = useState({ amountCents: 0 });
+  useEffect(() => { if (occ) setValues({ amountCents: occ.amountCents }); }, [occ]);
+  const v = useFormValidation(values, { amountCents: moneyRule("o valor", { allowZero: true }) });
+  const save = useAction(
+    (amountCents: number | null) => api.put("/occurrences", { transactionId: occ!.transactionId, month: occ!.month, amountCents }),
+    "Valor do mês atualizado",
+    onClose,
+    v.applyServerError,
+  );
+  if (!occ) return null;
+  return (
+    <Modal open onClose={onClose} title="Valor só deste mês">
+      <form ref={v.formRef} noValidate className="space-y-4" onSubmit={(e) => { e.preventDefault(); if (v.validate()) save.mutate(values.amountCents); }}>
+        <p className="text-sm text-ink-soft">
+          <b className="text-ink">{occ.description}</b> em {monthLabel(occ.month)}. Os outros meses continuam com o valor normal.
+          {occ.amountMode === "PERCENT" && " Isso substitui o cálculo pelo percentual apenas neste mês."}
+        </p>
+        <Field label="Valor neste mês" error={v.error("amountCents")}>
+          <MoneyInput autoFocus {...v.bind("amountCents")} value={values.amountCents} onChange={(c) => setValues({ amountCents: c })} />
+        </Field>
+        <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+          {occ.overridden && (
+            <button type="button" className="btn-ghost" disabled={save.isPending} onClick={() => save.mutate(null)}>Voltar ao valor padrão</button>
+          )}
+          <button className="btn-primary" disabled={save.isPending}>{save.isPending ? "Salvando…" : "Salvar"}</button>
+        </div>
+      </form>
+    </Modal>
+  );
+}
+
+function recurrenceText(t: Transaction) {
+  if (t.recurrence === "INSTALLMENTS") return `Parcelado em ${t.totalMonths}x${t.installmentStart > 1 ? ` (começou na ${t.installmentStart}ª)` : ""}`;
+  return t.totalMonths ? `Todo mês por ${t.totalMonths} ${t.totalMonths === 1 ? "mês" : "meses"}` : "Todo mês, sem data para acabar";
+}
+
+function FixedView() {
+  const { openTx } = useLayout();
+  const q = useQuery({ queryKey: ["transactions", "recurring"], queryFn: () => api.get<Transaction[]>("/transactions?recurring=1") });
+  if (q.isLoading || !q.data) return <PageLoading />;
+  if (q.data.length === 0)
+    return (
+      <div className="card">
+        <Empty icon="🔁" title="Nenhum lançamento fixo" text="Salários, contas mensais, assinaturas, financiamentos e compras parceladas aparecem aqui."
+          action={<button className="btn-primary" onClick={() => openTx({ recurrence: "MONTHLY" })}><Plus size={16} /> Adicionar fixo</button>} />
+      </div>
+    );
+
+  const groups: [string, Transaction[]][] = [
+    ["Entradas fixas", q.data.filter((t) => t.type === "INCOME")],
+    ["Gastos mensais", q.data.filter((t) => t.type === "EXPENSE" && t.recurrence === "MONTHLY")],
+    ["Parcelados", q.data.filter((t) => t.recurrence === "INSTALLMENTS")],
+  ];
+  return (
+    <div className="space-y-4">
+      {groups.filter(([, l]) => l.length).map(([title, list]) => (
+        <section key={title} className="card overflow-hidden">
+          <h2 className="border-b border-brand-950/[0.05] px-4 py-3 font-bold">{title}</h2>
+          <ul className="divide-y divide-brand-950/[0.05]">
+            {list.map((t) => (
+              <li key={t.id}>
+                <button className="flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-brand-50/40" onClick={() => openTx({ id: t.id })}>
+                  <div className="grid h-9 w-9 shrink-0 place-items-center rounded-xl text-base" style={{ background: `${t.category?.color ?? "#94A3B8"}1F` }}>
+                    {t.category?.icon ?? "📦"}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-semibold">{t.description}</p>
+                    <p className="truncate text-xs text-ink-faint">
+                      {recurrenceText(t)} · desde {new Date(`${t.date}T00:00:00`).toLocaleDateString("pt-BR", { month: "short", year: "numeric" })}
+                      {t.person ? ` · ${firstName(t.person.name)}` : " · Casa"}
+                      {t.card && ` · 💳 ${t.card.name}`}
+                    </p>
+                  </div>
+                  <p className={cx("text-sm font-bold tabular", t.type === "INCOME" && "text-emerald-600")}>
+                    {t.amountMode === "PERCENT" ? `${(t.percentBp ?? 0) / 100}% da renda` : money(t.amountCents)}
+                  </p>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ))}
+    </div>
+  );
+}

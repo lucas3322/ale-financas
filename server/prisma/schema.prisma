@@ -1,0 +1,217 @@
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x", "debian-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+/// Valores monetários são sempre guardados em centavos (Int) para evitar erros de ponto flutuante.
+
+model User {
+  id            String       @id @default(cuid())
+  name          String
+  email         String       @unique
+  passwordHash  String
+  activeGroupId String?
+  createdAt     DateTime     @default(now())
+  memberships   Membership[]
+  transactions  Transaction[] @relation("TxPerson")
+  cards         Card[]
+  refreshTokens RefreshToken[]
+}
+
+/// Refresh tokens são rotacionados a cada uso. Guardamos só o hash.
+model RefreshToken {
+  id          String    @id @default(cuid())
+  userId      String
+  tokenHash   String    @unique
+  expiresAt   DateTime
+  revokedAt   DateTime?
+  replacedBy  String?
+  userAgent   String?
+  createdAt   DateTime  @default(now())
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model Group {
+  id                  String         @id @default(cuid())
+  name                String
+  initialBalanceCents Int            @default(0)
+  createdAt           DateTime       @default(now())
+  members             Membership[]
+  invites             Invite[]
+  categories          Category[]
+  cards               Card[]
+  transactions        Transaction[]
+  shoppingItems       ShoppingItem[]
+}
+
+enum Role {
+  OWNER
+  MEMBER
+}
+
+model Membership {
+  id        String   @id @default(cuid())
+  userId    String
+  groupId   String
+  role      Role     @default(MEMBER)
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  group     Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, groupId])
+}
+
+model Invite {
+  id          String    @id @default(cuid())
+  groupId     String
+  token       String    @unique
+  createdById String
+  expiresAt   DateTime
+  usedAt      DateTime?
+  usedById    String?
+  createdAt   DateTime  @default(now())
+  group       Group     @relation(fields: [groupId], references: [id], onDelete: Cascade)
+}
+
+enum TxType {
+  INCOME
+  EXPENSE
+}
+
+model Category {
+  id           String        @id @default(cuid())
+  groupId      String
+  name         String
+  kind         TxType        @default(EXPENSE)
+  color        String        @default("#8A05BE")
+  icon         String        @default("🏷️")
+  createdAt    DateTime      @default(now())
+  group        Group         @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  transactions Transaction[]
+}
+
+model Card {
+  id           String         @id @default(cuid())
+  groupId      String
+  ownerId      String?
+  name         String
+  limitCents   Int
+  closingDay   Int            @default(25)
+  dueDay       Int            @default(5)
+  color        String         @default("#8A05BE")
+  archived     Boolean        @default(false)
+  createdAt    DateTime       @default(now())
+  group        Group          @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  owner        User?          @relation(fields: [ownerId], references: [id], onDelete: SetNull)
+  transactions Transaction[]
+  shopping     ShoppingItem[]
+}
+
+enum AmountMode {
+  FIXED
+  PERCENT
+}
+
+enum PercentBase {
+  PERSON_INCOME
+  GROUP_INCOME
+}
+
+enum PaymentMethod {
+  PIX
+  BOLETO
+  CARD
+  DEBIT
+  CASH
+  TRANSFER
+}
+
+enum Recurrence {
+  ONCE
+  MONTHLY
+  INSTALLMENTS
+}
+
+model Transaction {
+  id               String          @id @default(cuid())
+  groupId          String
+  /// Pessoa dona da entrada/saída (de quem é o salário, quem paga)
+  personId         String?
+  createdById      String
+  type             TxType
+  description      String
+  categoryId       String?
+  amountMode       AmountMode      @default(FIXED)
+  /// Valor de cada ocorrência (para parcelado: valor da parcela)
+  amountCents      Int             @default(0)
+  /// Percentual em pontos-base (1000 = 10%)
+  percentBp        Int?
+  percentBase      PercentBase?
+  paymentMethod    PaymentMethod?
+  cardId           String?
+  /// Data da compra / primeira ocorrência
+  date             DateTime        @db.Date
+  recurrence       Recurrence      @default(ONCE)
+  /// MONTHLY: quantidade de meses (null = sem fim). INSTALLMENTS: total de parcelas
+  totalMonths      Int?
+  /// Parcela em que a série começa (ex.: já estou na 3/6)
+  installmentStart Int             @default(1)
+  isSalary         Boolean         @default(false)
+  notes            String?
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+  group            Group           @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  person           User?           @relation("TxPerson", fields: [personId], references: [id], onDelete: SetNull)
+  category         Category?       @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  card             Card?           @relation(fields: [cardId], references: [id], onDelete: SetNull)
+  occurrences      TxOccurrence[]
+
+  @@index([groupId])
+}
+
+/// Estado de uma ocorrência num mês específico (pago, valor ajustado, pulado)
+model TxOccurrence {
+  id            String      @id @default(cuid())
+  transactionId String
+  /// "YYYY-MM"
+  month         String
+  paid          Boolean     @default(false)
+  paidAt        DateTime?
+  amountCents   Int?
+  skipped       Boolean     @default(false)
+  transaction   Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+
+  @@unique([transactionId, month])
+}
+
+enum ShoppingStatus {
+  PLANNED
+  BOUGHT
+}
+
+model ShoppingItem {
+  id             String         @id @default(cuid())
+  groupId        String
+  name           String
+  estimatedCents Int
+  paymentMethod  PaymentMethod  @default(PIX)
+  cardId         String?
+  installments   Int            @default(1)
+  /// "YYYY-MM" — mês em que pretende comprar
+  plannedMonth   String?
+  priority       Int            @default(2)
+  status         ShoppingStatus @default(PLANNED)
+  transactionId  String?
+  notes          String?
+  link           String?
+  createdAt      DateTime       @default(now())
+  group          Group          @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  card           Card?          @relation(fields: [cardId], references: [id], onDelete: SetNull)
+}

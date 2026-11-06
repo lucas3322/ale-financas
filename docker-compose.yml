@@ -1,0 +1,25 @@
+# Sobe o app completo localmente (igual ao Railway): docker compose up --build
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: nossocaixa
+    ports: ["5499:5432"]
+    volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 3s
+      retries: 20
+  app:
+    build: .
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@db:5432/nossocaixa?schema=public
+      JWT_SECRET: troque-isto-por-um-segredo-longo
+      PORT: 3000
+    ports: ["3000:3000"]
+    depends_on:
+      db: { condition: service_healthy }
+volumes:
+  pgdata:
