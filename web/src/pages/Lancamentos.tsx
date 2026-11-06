@@ -1,7 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
-import { Check, MoreVertical, Pencil, Plus, Repeat, Search, SkipForward, Undo2, Wallet } from "lucide-react";
+import { Check, ChevronRight, MoreVertical, Pencil, Plus, Repeat, Search, SkipForward, Undo2, Wallet } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Empty, Field, MenuItem, Modal, MonthSwitcher, MoneyInput, PageLoading, Popover, Segmented, cx, useMonth } from "../components/ui";
+import { InvoiceModal } from "../components/InvoiceModal";
 import { useLayout } from "../layouts/AppLayout";
 import { api } from "../lib/api";
 import { METHOD_ICON, METHOD_LABEL, firstName, money, monthLabel } from "../lib/format";
@@ -38,6 +39,11 @@ function MonthView() {
   const { openTx } = useLayout();
   const [filter, setFilter] = useState<Filter>({ q: "", type: "ALL", status: "ALL", person: "" });
   const [adjust, setAdjust] = useState<Occ | null>(null);
+  const [invoice, setInvoice] = useState<{ cardId: string; month: string } | null>(null);
+  const payInvoice = useAction(
+    (p: { cardId: string; paid: boolean }) => api.post(`/cards/${p.cardId}/pay-invoice`, { month, paid: p.paid }),
+    "Fatura atualizada",
+  );
   const q = useQuery({ queryKey: ["month", month], queryFn: () => api.get<MonthData>(`/months/${month}`) });
 
   const setOcc = useAction((p: { o: Occ; patch: Partial<Pick<Occ, "paid" | "skipped">> & { amountCents?: number | null } }) =>
@@ -121,7 +127,12 @@ function MonthView() {
               onAdjust={setAdjust} onSkip={(o) => setOcc.mutate({ o, patch: { skipped: !o.skipped } })} />
           )}
           {expenses.length > 0 && (
-            <OccList title="Saídas" today={t.today} items={expenses} onToggle={(o) => setOcc.mutate({ o, patch: { paid: !o.paid } })}
+            <OccList title="Saídas" today={t.today} items={expenses}
+              // Compras no cartão viram uma linha por fatura; ao buscar, mostra cada compra para achar o que procura.
+              groupCards={!filter.q.trim()}
+              onOpenInvoice={(cardId) => setInvoice({ cardId, month })}
+              onPayInvoice={(cardId, paid) => payInvoice.mutate({ cardId, paid })}
+              onToggle={(o) => setOcc.mutate({ o, patch: { paid: !o.paid } })}
               onEdit={(o) => openTx({ id: o.transactionId, fromMonth: o.month, recurrence: o.recurrence })}
               onAdjust={setAdjust} onSkip={(o) => setOcc.mutate({ o, patch: { skipped: !o.skipped } })} />
           )}
@@ -129,6 +140,10 @@ function MonthView() {
       )}
 
       <AdjustModal occ={adjust} onClose={() => setAdjust(null)} />
+      {invoice && (
+        <InvoiceModal cardId={invoice.cardId} month={invoice.month} onClose={() => setInvoice(null)}
+          onEditItem={(o) => { setInvoice(null); openTx({ id: o.transactionId, fromMonth: o.month, recurrence: o.recurrence }); }} />
+      )}
     </>
   );
 }
@@ -143,20 +158,94 @@ function Stat({ label, value, tone, sub }: { label: string; value: number; tone:
   );
 }
 
-function OccList({ title, today, items, onToggle, onEdit, onAdjust, onSkip }: {
-  title: string; today: string; items: Occ[]; onToggle: (o: Occ) => void; onEdit: (o: Occ) => void; onAdjust: (o: Occ) => void; onSkip: (o: Occ) => void;
+type InvoiceGroup = { card: NonNullable<Occ["card"]>; items: Occ[]; total: number; day: number; dueDate: string; paid: boolean; paidCount: number };
+type Row = { kind: "occ"; o: Occ } | { kind: "invoice"; g: InvoiceGroup };
+
+function OccList({ title, today, items, groupCards, onOpenInvoice, onPayInvoice, onToggle, onEdit, onAdjust, onSkip }: {
+  title: string; today: string; items: Occ[]; groupCards?: boolean;
+  onOpenInvoice?: (cardId: string) => void; onPayInvoice?: (cardId: string, paid: boolean) => void;
+  onToggle: (o: Occ) => void; onEdit: (o: Occ) => void; onAdjust: (o: Occ) => void; onSkip: (o: Occ) => void;
 }) {
   const total = items.filter((o) => !o.skipped).reduce((s, o) => s + o.amountCents, 0);
+  const rows = useMemo<Row[]>(() => {
+    if (!groupCards) return items.map((o) => ({ kind: "occ", o }));
+    const groups = new Map<string, InvoiceGroup>();
+    const out: Row[] = [];
+    for (const o of items) {
+      if (o.paymentMethod === "CARD" && o.card) {
+        let g = groups.get(o.card.id);
+        if (!g) {
+          g = { card: o.card, items: [], total: 0, day: o.day, dueDate: o.dueDate, paid: true, paidCount: 0 };
+          groups.set(o.card.id, g);
+          out.push({ kind: "invoice", g });
+        }
+        g.items.push(o);
+        if (!o.skipped) g.total += o.amountCents;
+        if (o.paid) g.paidCount++;
+        g.paid = g.paid && o.paid;
+      } else {
+        out.push({ kind: "occ", o });
+      }
+    }
+    // Mantém a ordem por dia de vencimento, com a fatura no dia em que vence.
+    const dayOf = (r: Row) => (r.kind === "occ" ? r.o.day : r.g.day);
+    return out.sort((a, b) => dayOf(a) - dayOf(b));
+  }, [items, groupCards]);
+
   return (
     <section className="card">
       <div className="flex items-center justify-between border-b border-brand-950/[0.05] px-4 py-3">
-        <h2 className="font-bold">{title} <span className="ml-1 text-xs font-semibold text-ink-faint">{items.length}</span></h2>
+        <h2 className="font-bold">{title} <span className="ml-1 text-xs font-semibold text-ink-faint">{rows.length}</span></h2>
         <p className="text-sm font-bold tabular">{money(total)}</p>
       </div>
       <ul className="divide-y divide-brand-950/[0.05]">
-        {items.map((o) => <OccRow key={o.transactionId} o={o} today={today} onToggle={onToggle} onEdit={onEdit} onAdjust={onAdjust} onSkip={onSkip} />)}
+        {rows.map((r) =>
+          r.kind === "occ" ? (
+            <OccRow key={r.o.transactionId} o={r.o} today={today} onToggle={onToggle} onEdit={onEdit} onAdjust={onAdjust} onSkip={onSkip} />
+          ) : (
+            <InvoiceRow key={`inv-${r.g.card.id}`} g={r.g} today={today}
+              onOpen={() => onOpenInvoice?.(r.g.card.id)} onPay={(paid) => onPayInvoice?.(r.g.card.id, paid)} />
+          ),
+        )}
       </ul>
     </section>
+  );
+}
+
+/** Uma linha por fatura de cartão: total, vencimento e quantas compras. Clique mostra o detalhe. */
+function InvoiceRow({ g, today, onOpen, onPay }: { g: InvoiceGroup; today: string; onOpen: () => void; onPay: (paid: boolean) => void }) {
+  const people = [...new Set(g.items.map((o) => (o.person ? firstName(o.person.name) : "Casa")))];
+  const installments = g.items.filter((o) => o.installmentLabel).length;
+  return (
+    <li className="flex items-center gap-3 px-4 py-3">
+      <button
+        onClick={() => onPay(!g.paid)}
+        aria-label={g.paid ? `Desmarcar fatura ${g.card.name}` : `Marcar fatura ${g.card.name} como paga`}
+        title={g.paid ? "Desmarcar fatura" : "Marcar fatura inteira como paga"}
+        className={cx("grid h-6 w-6 shrink-0 place-items-center rounded-full border-2 transition",
+          g.paid ? "border-emerald-500 bg-emerald-500 text-white" : "border-brand-200 text-transparent hover:border-brand-500 hover:text-brand-400")}
+      >
+        <Check size={14} strokeWidth={3} />
+      </button>
+      <div className="grid h-9 w-9 shrink-0 place-items-center rounded-xl text-base text-white" style={{ background: g.card.color }}>💳</div>
+      <button className="min-w-0 flex-1 text-left" onClick={onOpen} aria-label={`Ver fatura ${g.card.name}`}>
+        <p className={cx("truncate text-sm font-semibold", g.paid && "text-ink-soft line-through decoration-ink-faint/50")}>
+          Fatura {g.card.name}
+          <span className="ml-1.5 chip bg-brand-50 text-brand-700">{g.items.length} {g.items.length === 1 ? "compra" : "compras"}</span>
+        </p>
+        <p className="truncate text-xs text-ink-faint">
+          vence dia {g.day} · {people.join(", ")}
+          {installments > 0 && ` · ${installments} parcela${installments > 1 ? "s" : ""}`}
+          {!g.paid && g.paidCount > 0 && ` · ${g.paidCount} de ${g.items.length} pagas`}
+        </p>
+        {!g.paid && g.dueDate > today && (
+          <span className="chip mt-1 bg-sky-50 text-sky-700">🗓️ agendado · {new Date(`${g.dueDate}T12:00:00`).toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })}</span>
+        )}
+        {!g.paid && g.dueDate < today && <span className="chip mt-1 bg-amber-50 text-amber-700">⚠️ vencido</span>}
+      </button>
+      <p className="text-right text-sm font-bold tabular">− {money(g.total)}</p>
+      <button className="btn-ghost !p-1.5" onClick={onOpen} aria-label={`Detalhes da fatura ${g.card.name}`}><ChevronRight size={16} /></button>
+    </li>
   );
 }
 
