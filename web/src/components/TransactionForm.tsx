@@ -1,7 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { api } from "../lib/api";
-import { METHOD_ICON, METHOD_LABEL, invoiceFor, money, monthLabel, today } from "../lib/format";
+import { METHOD_LABEL, invoiceFor, money, monthLabel, today } from "../lib/format";
+import { AppIcon, MethodIcon } from "./AppIcon";
+import { CategoryPicker } from "./CategoryPicker";
 import { useAction, useCards, useCategories, useMe } from "../lib/queries";
 import { intRange, moneyRule, required, useFormValidation, validDate, type Rules } from "../lib/validation";
 import type { AmountMode, CardSummary, PaymentMethod, PercentBase, Recurrence, Transaction, TxType } from "../lib/types";
@@ -246,20 +248,12 @@ function TransactionForm({ draft, onDone }: { draft?: TxDraft; onDone: () => voi
         <Field label={isExpense ? "De quem é o gasto" : "Quem recebe"}>
           <select className="field" value={f.personId ?? ""} onChange={(e) => set("personId", e.target.value || null)}>
             {me!.members.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
-            <option value="">🏠 Casa (compartilhado)</option>
+            <option value="">Casa (compartilhado)</option>
           </select>
         </Field>
         <Field label="Categoria">
-          <select className="field" value={newCategory ? "__new" : f.categoryId ?? ""}
-            onChange={(e) => {
-              if (e.target.value === "__new") return setNewCategory(true);
-              setNewCategory(false);
-              set("categoryId", e.target.value || null);
-            }}>
-            <option value="">Sem categoria</option>
-            {cats.map((c) => <option key={c.id} value={c.id}>{c.icon} {c.name}</option>)}
-            <option value="__new">＋ Nova categoria…</option>
-          </select>
+          <CategoryPicker kind={f.type} value={f.categoryId} onChange={(id) => { setNewCategory(false); set("categoryId", id); }}
+            onCreateNew={() => setNewCategory(true)} />
         </Field>
       </div>
       {newCategory && (
@@ -276,7 +270,7 @@ function TransactionForm({ draft, onDone }: { draft?: TxDraft; onDone: () => voi
               <button key={m} type="button" onClick={() => set("paymentMethod", m)}
                 className={cx("rounded-xl border px-2 py-2 text-xs font-semibold transition",
                   f.paymentMethod === m ? "border-brand-500 bg-brand-50 text-brand-700" : "border-brand-950/10 text-ink-soft hover:border-brand-300")}>
-                {METHOD_ICON[m]} {METHOD_LABEL[m]}
+                <span className="inline-flex items-center justify-center gap-1.5"><MethodIcon method={m} size={15} /> {METHOD_LABEL[m]}</span>
               </button>
             ))}
           </div>
@@ -292,12 +286,12 @@ function TransactionForm({ draft, onDone }: { draft?: TxDraft; onDone: () => voi
                   <Field label="Cartão" error={v.error("cardId")}>
                     <select className="field" {...v.bind("cardId")} value={f.cardId ?? ""} onChange={(e) => set("cardId", e.target.value || null)}>
                       <option value="" disabled>Escolha o cartão</option>
-                      {activeCards.map((c) => <option key={c.id} value={c.id}>💳 {c.name}</option>)}
+                      {activeCards.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
                     </select>
                   </Field>
                   {invoice && (
                     <p className="mt-2 rounded-xl bg-white/70 px-3 py-2 text-xs font-semibold text-brand-900">
-                      🧾 {f.recurrence === "INSTALLMENTS" ? "1ª parcela entra" : "Entra"} na fatura de <b>{monthLabel(invoice.month)}</b> (vence {invoice.due})
+                      <AppIcon icon="ph:receipt-duotone" size={14} className="mr-1 inline align-[-2px] text-brand-600" />{f.recurrence === "INSTALLMENTS" ? "1ª parcela entra" : "Entra"} na fatura de <b>{monthLabel(invoice.month)}</b> (vence {invoice.due})
                       {cardDef && Number(f.date.slice(8, 10)) > cardDef.closingDay && <span className="font-normal"> — compra depois do fechamento (dia {cardDef.closingDay})</span>}
                     </p>
                   )}

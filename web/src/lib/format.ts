@@ -50,9 +50,6 @@ export function monthFirstDay(m: string) {
 export const METHOD_LABEL: Record<PaymentMethod | "OTHER", string> = {
   PIX: "Pix", BOLETO: "Boleto", CARD: "Cartão", DEBIT: "Débito", CASH: "Dinheiro", TRANSFER: "Transferência", OTHER: "Outro",
 };
-export const METHOD_ICON: Record<PaymentMethod | "OTHER", string> = {
-  PIX: "⚡", BOLETO: "🧾", CARD: "💳", DEBIT: "🏧", CASH: "💵", TRANSFER: "🔁", OTHER: "•",
-};
 
 export const firstName = (n: string) => n.split(" ")[0];
 

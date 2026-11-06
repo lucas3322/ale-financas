@@ -6,6 +6,9 @@ WORKDIR /app/web
 COPY web/package.json web/package-lock.json ./
 RUN npm ci
 COPY web/ ./
+# O build embute os ícones do Iconify usados também nas categorias padrão do servidor.
+COPY server/src /app/server/src
+COPY server/prisma/migrations /app/server/prisma/migrations
 RUN npm run build
 
 # ---------- Backend ----------

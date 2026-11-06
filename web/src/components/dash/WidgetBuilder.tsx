@@ -6,7 +6,10 @@ import {
   type Condition, type Dimension, type QueryResult, type QuerySpec, type Size, type Viz, type Widget,
 } from "../../lib/analytics";
 import { api } from "../../lib/api";
-import { METHOD_ICON, METHOD_LABEL, currentMonth } from "../../lib/format";
+import { METHOD_LABEL, currentMonth } from "../../lib/format";
+import { METHOD_ICONS } from "../../lib/icons/catalog";
+import { AppIcon } from "../AppIcon";
+import { useCategoryTree } from "../CategoryPicker";
 import { useCards, useCategories, useMe } from "../../lib/queries";
 import type { PaymentMethod, Recurrence } from "../../lib/types";
 import { useFormValidation, type Rules } from "../../lib/validation";
@@ -267,7 +270,7 @@ function Section({ n, title, subtitle, children }: { n: number; title: string; s
 }
 
 function Chips<T extends string>({ label, options, value, onChange }: {
-  label: string; options: { value: T; label: string; color?: string }[]; value: T[] | undefined; onChange: (v: T[]) => void;
+  label: string; options: { value: T; label: string; color?: string; icon?: string }[]; value: T[] | undefined; onChange: (v: T[]) => void;
 }) {
   const sel = new Set(value ?? []);
   if (!options.length) return null;
@@ -282,7 +285,7 @@ function Chips<T extends string>({ label, options, value, onChange }: {
               onClick={() => { const n = new Set(sel); on ? n.delete(o.value) : n.add(o.value); onChange([...n]); }}
               className={cx("inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-semibold transition-colors duration-150",
                 on ? "border-brand-500 bg-brand-600 text-white" : "border-brand-950/10 text-ink-soft hover:border-brand-300")}>
-              {o.color && <span className="h-2 w-2 rounded-full" style={{ background: on ? "#fff" : o.color }} />}
+              {o.icon ? <AppIcon icon={o.icon} size={14} color={on ? "#fff" : o.color} /> : o.color && <span className="h-2 w-2 rounded-full" style={{ background: on ? "#fff" : o.color }} />}
               {o.label}
             </button>
           );
@@ -297,15 +300,19 @@ function Filters({ q, set }: { q: QuerySpec; set: (p: Partial<QuerySpec["filters
   const { data: categories = [] } = useCategories();
   const { data: cards = [] } = useCards();
   const f = q.filters;
-  const cats = categories.filter((c) => (q.measure === "income" ? c.kind === "INCOME" : q.measure === "expense" ? c.kind === "EXPENSE" : true));
+  const { byId } = useCategoryTree();
+  // Mães seguidas das suas subcategorias; filtrar a mãe já inclui as subcategorias.
+  const cats = categories
+    .filter((c) => (q.measure === "income" ? c.kind === "INCOME" : q.measure === "expense" ? c.kind === "EXPENSE" : true))
+    .sort((a, b) => (byId.get(a.parentId ?? "")?.name ?? a.name).localeCompare(byId.get(b.parentId ?? "")?.name ?? b.name) || (a.parentId ? 1 : 0) - (b.parentId ? 1 : 0) || a.name.localeCompare(b.name));
   return (
     <div className="space-y-3">
       <Chips label="Categorias" value={f.categoryIds} onChange={(categoryIds) => set({ categoryIds })}
-        options={cats.map((c) => ({ value: c.id, label: `${c.icon} ${c.name}`, color: c.color }))} />
+        options={cats.map((c) => ({ value: c.id, label: c.parentId ? `${byId.get(c.parentId)?.name ?? ""} › ${c.name}` : c.name, color: c.color, icon: c.icon }))} />
       <Chips label="Pessoas" value={f.personIds} onChange={(personIds) => set({ personIds })}
-        options={[...(me?.members ?? []).map((m) => ({ value: m.id, label: m.name.split(" ")[0] })), { value: "shared", label: "🏠 Casa" }]} />
+        options={[...(me?.members ?? []).map((m) => ({ value: m.id, label: m.name.split(" ")[0] })), { value: "shared", label: "Casa", icon: "ph:house-line-duotone", color: "#64748B" }]} />
       <Chips<PaymentMethod> label="Forma de pagamento" value={f.methods} onChange={(methods) => set({ methods })}
-        options={(["PIX", "BOLETO", "CARD", "DEBIT", "CASH", "TRANSFER"] as PaymentMethod[]).map((m) => ({ value: m, label: `${METHOD_ICON[m]} ${METHOD_LABEL[m]}` }))} />
+        options={(["PIX", "BOLETO", "CARD", "DEBIT", "CASH", "TRANSFER"] as PaymentMethod[]).map((m) => ({ value: m, label: METHOD_LABEL[m], icon: METHOD_ICONS[m], color: m === "PIX" ? "#32BCAD" : "#5B5470" }))} />
       <Chips label="Cartões" value={f.cardIds} onChange={(cardIds) => set({ cardIds })}
         options={cards.map((c) => ({ value: c.id, label: c.name, color: c.color }))} />
       <Chips<Recurrence> label="Tipo de lançamento" value={f.recurrence} onChange={(recurrence) => set({ recurrence })}

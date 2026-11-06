@@ -1,4 +1,5 @@
 import { ChevronLeft, ChevronRight, X, type LucideIcon } from "lucide-react";
+import { AppIcon } from "./AppIcon";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { addMonths, centsToInput, currentMonth, monthTitle, parseMoney } from "../lib/format";
@@ -145,7 +146,7 @@ export function Progress({ value, max, color = "#820AD1" }: { value: number; max
 export function Empty({ icon, title, text, action }: { icon: string; title: string; text?: string; action?: ReactNode }) {
   return (
     <div className="flex flex-col items-center text-center px-6 py-12">
-      <div className="mb-3 grid h-14 w-14 place-items-center rounded-2xl bg-brand-50 text-2xl">{icon}</div>
+      <div className="mb-3 grid h-14 w-14 place-items-center rounded-2xl bg-brand-50 text-brand-600"><AppIcon icon={icon} size={28} /></div>
       <p className="font-bold">{title}</p>
       {text && <p className="mt-1 max-w-sm text-sm text-ink-soft">{text}</p>}
       {action && <div className="mt-4">{action}</div>}

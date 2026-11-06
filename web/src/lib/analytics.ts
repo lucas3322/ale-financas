@@ -1,7 +1,7 @@
 import type { PaymentMethod, Recurrence } from "./types";
 
 export type Measure = "expense" | "income" | "net" | "flow" | "balance" | "count";
-export type Dimension = "none" | "month" | "category" | "person" | "method" | "card" | "type" | "recurrence" | "status";
+export type Dimension = "none" | "month" | "category" | "subcategory" | "person" | "method" | "card" | "type" | "recurrence" | "status";
 export type Preset =
   | "selected" | "this_month" | "last_month" | "last_3" | "last_6" | "last_12" | "ytd" | "next_3" | "next_6" | "next_12" | "custom";
 export type Viz = "kpi" | "donut" | "pie" | "bar" | "barH" | "stacked" | "line" | "area" | "table" | "progress" | "cards" | "upcoming";
@@ -49,8 +49,8 @@ export interface DashboardDef {
 
 export interface QueryResult {
   range: { from: string; to: string; months: number };
-  labels: { key: string; label: string; color?: string }[];
-  series: { key: string; label: string; color?: string; values: number[] }[];
+  labels: { key: string; label: string; color?: string; icon?: string }[];
+  series: { key: string; label: string; color?: string; icon?: string; values: number[] }[];
   total: number;
   previousTotal: number | null;
   count: number;
@@ -69,6 +69,7 @@ export const DIMENSIONS: { value: Dimension; label: string }[] = [
   { value: "none", label: "Nada (total)" },
   { value: "month", label: "Mês" },
   { value: "category", label: "Categoria" },
+  { value: "subcategory", label: "Subcategoria (ex.: Netflix, Spotify)" },
   { value: "person", label: "Pessoa" },
   { value: "method", label: "Forma de pagamento" },
   { value: "card", label: "Cartão" },
@@ -175,7 +176,7 @@ export const TEMPLATES: { key: string; name: string; icon: string; description: 
   {
     key: "overview",
     name: "Visão geral",
-    icon: "✨",
+    icon: "ph:sparkle-duotone",
     description: "Sobra, gastos, metas, categorias e o saldo do ano",
     build: () => [
       w("kpi", "Sobra do mês", { measure: "net" }, { conditions: [{ op: "lt", valueCents: 0, tone: "red" }] }),
@@ -192,7 +193,7 @@ export const TEMPLATES: { key: string; name: string; icon: string; description: 
   {
     key: "cards",
     name: "Cartões",
-    icon: "💳",
+    icon: "ph:credit-card-duotone",
     description: "Fatura, limite e onde o cartão está sendo usado",
     build: () => [
       w("kpi", "Fatura do mês", { measure: "expense", filters: { status: "all", methods: ["CARD"] } }),
@@ -205,7 +206,7 @@ export const TEMPLATES: { key: string; name: string; icon: string; description: 
   {
     key: "couple",
     name: "Casal",
-    icon: "💜",
+    icon: "ph:heart-duotone",
     description: "Quem ganha, quem gasta e a sobra de cada um",
     build: () => [
       w("bar", "Entradas × saídas por pessoa", { measure: "flow", groupBy: "person", splitBy: "type" }, { size: "m" }),

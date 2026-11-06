@@ -119,13 +119,14 @@ export async function reportRoutes(app: FastifyInstance) {
 
     const byCategory = new Map<string, { id: string | null; name: string; color: string; icon: string; totalCents: number }>();
     for (const o of expenses) {
-      const c = o.tx.category;
+      // Subcategoria soma na categoria mãe (Netflix entra em Assinaturas e streaming).
+      const c = o.tx.category?.parent ?? o.tx.category;
       const key = c?.id ?? "none";
       const cur = byCategory.get(key) ?? {
         id: c?.id ?? null,
         name: c?.name ?? "Sem categoria",
         color: c?.color ?? "#94A3B8",
-        icon: c?.icon ?? "📦",
+        icon: c?.icon ?? "ph:package-duotone",
         totalCents: 0,
       };
       cur.totalCents += o.amountCents;

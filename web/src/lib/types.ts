@@ -11,7 +11,7 @@ export interface Me {
   members: { id: string; name: string; email: string; role: "OWNER" | "MEMBER" }[];
 }
 
-export interface Category { id: string; name: string; kind: TxType; color: string; icon: string }
+export interface Category { id: string; name: string; kind: TxType; color: string; icon: string; parentId: string | null }
 
 export interface Card {
   id: string; name: string; limitCents: number; closingDay: number; dueDay: number;
@@ -33,7 +33,7 @@ export interface Occ {
   type: TxType; description: string; isSalary: boolean; recurrence: Recurrence; totalMonths: number | null;
   amountMode: AmountMode; percentBp: number | null; percentBase: PercentBase | null;
   paymentMethod: PaymentMethod | null; date: string;
-  category: { id: string; name: string; color: string; icon: string } | null;
+  category: { id: string; name: string; color: string; icon: string; parent?: { id: string; name: string; color: string; icon: string } | null } | null;
   person: { id: string; name: string } | null;
   card: { id: string; name: string; color: string } | null;
 }

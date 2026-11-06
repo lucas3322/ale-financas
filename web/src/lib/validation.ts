@@ -5,7 +5,8 @@ export type Rules<T> = { [K in keyof T]?: (value: T[K], all: T) => string | null
 
 /**
  * Validação de formulário com a UX certa:
- * - erro só aparece depois que a pessoa sai do campo (blur) ou tenta enviar;
+ * - erro só aparece depois que a pessoa mexe no campo e sai dele (blur), ou quando tenta enviar —
+ *   passar por um campo sem digitar nada não acusa erro;
  * - erro some assim que o valor fica válido;
  * - erros do servidor (por campo) aparecem no input correspondente e somem ao editar;
  * - ao enviar com erro, o foco vai para o primeiro campo inválido.
@@ -15,6 +16,7 @@ export function useFormValidation<T extends object>(values: T, rules: Rules<T>) 
   const [submitted, setSubmitted] = useState(false);
   const [server, setServer] = useState<{ fields: Record<string, string>; snapshot: Partial<T> }>({ fields: {}, snapshot: {} });
   const formRef = useRef<HTMLFormElement>(null);
+  const initial = useRef(values);
 
   const clientErrors = useMemo(() => {
     const out: Partial<Record<keyof T, string>> = {};
@@ -38,7 +40,10 @@ export function useFormValidation<T extends object>(values: T, rules: Rules<T>) 
 
   const bind = (k: keyof T & string) => ({
     name: k,
-    onBlur: () => setTouched((t) => (t[k] ? t : { ...t, [k]: true })),
+    onBlur: () => {
+      if (Object.is(values[k], initial.current[k])) return; // só passou pelo campo
+      setTouched((t) => (t[k] ? t : { ...t, [k]: true }));
+    },
     "aria-invalid": !!error(k) || undefined,
   });
 

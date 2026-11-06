@@ -8,7 +8,7 @@ import { dateInMonth, dateMonthIdx, formatMonth } from "./months.js";
 
 export type TxWithRefs = Transaction & {
   card?: Card | null;
-  category?: Category | null;
+  category?: (Category & { parent?: Category | null }) | null;
   person?: Pick<User, "id" | "name"> | null;
 };
 

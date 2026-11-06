@@ -325,7 +325,7 @@ function MyGroups() {
     <Section title="Seus grupos" subtitle="Você pode participar de mais de um grupo e alternar entre eles."
       actions={<button className="btn-outline !px-3 !py-2" onClick={() => setCreating(true)}><Plus size={16} /> Novo grupo</button>}>
       {me!.groups.length === 0 ? (
-        <Empty icon="👥" title="Nenhum grupo" />
+        <Empty icon="ph:users-three-duotone" title="Nenhum grupo" />
       ) : (
         <ul className="space-y-2">
           {me!.groups.map((g) => {

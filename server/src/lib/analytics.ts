@@ -10,7 +10,7 @@ import { currentMonthIdx, formatMonth, parseMonth } from "./months.js";
  * então recorrências, parcelas, fatura do cartão e percentuais já vêm resolvidos.
  */
 
-export const DIMENSIONS = ["none", "month", "category", "person", "method", "card", "type", "recurrence", "status"] as const;
+export const DIMENSIONS = ["none", "month", "category", "subcategory", "person", "method", "card", "type", "recurrence", "status"] as const;
 export const MEASURES = ["expense", "income", "net", "flow", "balance", "count"] as const;
 export const PRESETS = [
   "selected", "this_month", "last_month", "last_3", "last_6", "last_12", "ytd", "next_3", "next_6", "next_12", "custom",
@@ -44,8 +44,8 @@ export type QuerySpec = z.infer<typeof querySchema>;
 
 export interface QueryResult {
   range: { from: string; to: string; months: number };
-  labels: { key: string; label: string; color?: string }[];
-  series: { key: string; label: string; color?: string; values: number[] }[];
+  labels: { key: string; label: string; color?: string; icon?: string }[];
+  series: { key: string; label: string; color?: string; icon?: string; values: number[] }[];
   total: number;
   previousTotal: number | null;
   count: number;
@@ -100,15 +100,23 @@ function valueOf(o: Occurrence, measure: QuerySpec["measure"]): number | null {
   }
 }
 
-function dimKey(o: Occurrence, dim: (typeof DIMENSIONS)[number], data: GroupData): { key: string; label: string; color?: string } {
+function dimKey(o: Occurrence, dim: (typeof DIMENSIONS)[number], data: GroupData): { key: string; label: string; color?: string; icon?: string } {
   const t = o.tx;
   switch (dim) {
     case "none": return { key: "all", label: "Total" };
     case "month": return { key: o.month, label: monthLabel(o.monthIdx) };
-    case "category":
-      return t.category
-        ? { key: t.category.id, label: `${t.category.icon} ${t.category.name}`, color: t.category.color }
-        : { key: "none", label: "📦 Sem categoria", color: "#94A3B8" };
+    case "category": {
+      // Agrupa na categoria mãe: Netflix e Spotify somam em "Assinaturas e streaming".
+      const c = t.category?.parent ?? t.category;
+      return c
+        ? { key: c.id, label: c.name, color: c.color, icon: c.icon }
+        : { key: "none", label: "Sem categoria", color: "#94A3B8", icon: "ph:package-duotone" };
+    }
+    case "subcategory": {
+      const c = t.category;
+      if (!c) return { key: "none", label: "Sem categoria", color: "#94A3B8", icon: "ph:package-duotone" };
+      return { key: c.id, label: c.parent ? `${c.parent.name} › ${c.name}` : c.name, color: c.color, icon: c.icon };
+    }
     case "person": {
       if (!t.personId) return { key: "shared", label: "🏠 Casa", color: "#94A3B8" };
       const i = data.members.findIndex((m) => m.id === t.personId);
@@ -138,7 +146,8 @@ const income = (o: Occurrence) => o.tx.type === "INCOME";
 
 function passes(o: Occurrence, f: QuerySpec["filters"]): boolean {
   const t = o.tx;
-  if (f.categoryIds?.length && !f.categoryIds.includes(t.categoryId ?? "none")) return false;
+  // Filtrar pela categoria mãe inclui as subcategorias dela.
+  if (f.categoryIds?.length && !f.categoryIds.includes(t.categoryId ?? "none") && !(t.category?.parentId && f.categoryIds.includes(t.category.parentId))) return false;
   if (f.personIds?.length && !f.personIds.includes(t.personId ?? "shared")) return false;
   if (f.methods?.length && (!t.paymentMethod || !f.methods.includes(t.paymentMethod))) return false;
   if (f.cardIds?.length && (!t.cardId || t.paymentMethod !== "CARD" || !f.cardIds.includes(t.cardId))) return false;

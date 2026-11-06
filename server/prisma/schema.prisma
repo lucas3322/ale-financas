@@ -86,16 +86,23 @@ enum TxType {
   EXPENSE
 }
 
+/// Categoria (ou subcategoria, quando tem parentId — ex.: Streaming › Netflix). Só um nível de profundidade.
+/// icon: nome de ícone do Iconify ("ph:house-line-duotone", "simple-icons:netflix") ou emoji legado.
 model Category {
   id           String        @id @default(cuid())
   groupId      String
+  parentId     String?
   name         String
   kind         TxType        @default(EXPENSE)
   color        String        @default("#8A05BE")
-  icon         String        @default("🏷️")
+  icon         String        @default("ph:tag-duotone")
   createdAt    DateTime      @default(now())
   group        Group         @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  parent       Category?     @relation("CategoryTree", fields: [parentId], references: [id], onDelete: Cascade)
+  children     Category[]    @relation("CategoryTree")
   transactions Transaction[]
+
+  @@index([groupId])
 }
 
 model Card {

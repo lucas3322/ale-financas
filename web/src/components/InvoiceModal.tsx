@@ -5,6 +5,7 @@ import { api } from "../lib/api";
 import { addMonths, METHOD_LABEL, firstName, money, monthLabel, monthTitle } from "../lib/format";
 import { useAction } from "../lib/queries";
 import type { CardSummary, Occ } from "../lib/types";
+import { CategoryIcon } from "./AppIcon";
 import { Modal, Spinner, cx } from "./ui";
 
 /**
@@ -76,9 +77,7 @@ export function InvoiceModal({ cardId, month: initialMonth, onClose, onEditItem 
                   <li key={o.transactionId}>
                     <button className="flex w-full items-center gap-3 px-3 py-2.5 text-left transition-colors duration-150 hover:bg-brand-50/50"
                       onClick={() => onEditItem(o)}>
-                      <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-sm" style={{ background: `${o.category?.color ?? "#94A3B8"}1F` }}>
-                        {o.category?.icon ?? "🛍️"}
-                      </span>
+                      <CategoryIcon category={o.category} size="sm" fallback="ph:shopping-bag-duotone" />
                       <span className="min-w-0 flex-1">
                         <span className={cx("block truncate text-sm font-semibold", o.paid && "text-ink-faint line-through")}>
                           {o.description}
@@ -87,7 +86,7 @@ export function InvoiceModal({ cardId, month: initialMonth, onClose, onEditItem 
                         <span className="block truncate text-[11px] text-ink-faint">
                           compra em {new Date(`${o.date}T12:00:00`).toLocaleDateString("pt-BR")}
                           {o.person ? ` · ${firstName(o.person.name)}` : " · Casa"}
-                          {o.category && ` · ${o.category.name}`}
+                          {o.category && ` · ${o.category.parent ? `${o.category.parent.name} › ` : ""}${o.category.name}`}
                           {o.recurrence === "MONTHLY" && " · todo mês"}
                           {o.paymentMethod && o.paymentMethod !== "CARD" && ` · ${METHOD_LABEL[o.paymentMethod]}`}
                         </span>

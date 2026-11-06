@@ -25,7 +25,7 @@ export const widgetSchema = z.object({
 
 const dashBody = z.object({
   name: z.string().trim().min(1, "Dê um nome ao dashboard").max(40, "Máximo de 40 caracteres"),
-  icon: z.string().max(8).default("📊"),
+  icon: z.string().max(60).default("ph:chart-pie-slice-duotone"),
   widgets: z.array(widgetSchema).max(40, "Máximo de 40 widgets por dashboard").default([]),
 });
 

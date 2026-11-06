@@ -8,7 +8,8 @@ import {
 } from "recharts";
 import { api } from "../../lib/api";
 import { TONE_CLASS, toneFor, type QueryResult, type Widget } from "../../lib/analytics";
-import { METHOD_ICON, METHOD_LABEL, money, moneyShort } from "../../lib/format";
+import { money, moneyShort } from "../../lib/format";
+import { AppIcon, PaymentTag } from "../AppIcon";
 import { useAction } from "../../lib/queries";
 import type { CardSummary, Occ } from "../../lib/types";
 import { Progress, cx } from "../ui";
@@ -92,7 +93,7 @@ export function WidgetChart({ w, data, height }: { w: Widget; data: QueryResult;
     case "donut":
     case "pie": {
       const s = data.series[0];
-      const items = data.labels.map((l, i) => ({ name: l.label, value: Math.max(0, s.values[i]), color: colorOf(l.color, i) })).filter((x) => x.value > 0);
+      const items = data.labels.map((l, i) => ({ name: l.label, icon: l.icon, value: Math.max(0, s.values[i]), color: colorOf(l.color, i) })).filter((x) => x.value > 0);
       const sum = items.reduce((a, b) => a + b.value, 0);
       return (
         <div className="flex h-full flex-wrap items-center justify-center gap-x-5 gap-y-3" style={{ minHeight: height }}>
@@ -118,7 +119,7 @@ export function WidgetChart({ w, data, height }: { w: Widget; data: QueryResult;
           <ul className="min-w-[160px] flex-1 space-y-1.5">
             {items.slice(0, 7).map((x) => (
               <li key={x.name} className="flex items-center gap-2 text-xs">
-                <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: x.color }} />
+                {x.icon ? <AppIcon icon={x.icon} size={15} color={x.color} /> : <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: x.color }} />}
                 <span className="min-w-0 flex-1 truncate">{x.name}</span>
                 <span className="font-semibold tabular">{sum ? Math.round((x.value / sum) * 100) : 0}%</span>
               </li>
@@ -135,7 +136,7 @@ export function WidgetChart({ w, data, height }: { w: Widget; data: QueryResult;
           {data.labels.map((l, i) => (
             <li key={l.key}>
               <div className="mb-1 flex items-baseline justify-between gap-2 text-xs">
-                <span className="min-w-0 truncate font-medium">{l.label}</span>
+                <span className="flex min-w-0 items-center gap-1.5 truncate font-medium">{l.icon && <AppIcon icon={l.icon} size={14} color={colorOf(l.color, i)} />}{l.label}</span>
                 <span className="font-semibold tabular">{formatValue(w, s.values[i])}</span>
               </div>
               <div className="h-2 overflow-hidden rounded-full bg-brand-950/[0.05]">
@@ -284,7 +285,7 @@ function DataTable({ w, data }: { w: Widget; data: QueryResult }) {
         <tbody className="divide-y divide-brand-950/[0.04]">
           {data.labels.map((l, i) => (
             <tr key={l.key} className="hover:bg-brand-50/40">
-              <td className="whitespace-nowrap px-1 py-2 font-medium">{l.label}</td>
+              <td className="whitespace-nowrap px-1 py-2 font-medium"><span className="inline-flex items-center gap-1.5">{l.icon && <AppIcon icon={l.icon} size={14} color={l.color} />}{l.label}</span></td>
               {multi && data.series.map((s) => <td key={s.key} className="px-2 py-2 text-right text-ink-soft">{s.values[i] ? formatValue(w, s.values[i]) : "—"}</td>)}
               <td className="px-1 py-2 text-right font-bold">{formatValue(w, rowTotal(i))}</td>
             </tr>
@@ -338,7 +339,7 @@ export function UpcomingWidget({ month }: { month: string }) {
   const pay = useAction((o: Occ) => api.put("/occurrences", { transactionId: o.transactionId, month: o.month, paid: true }), "Marcado como pago");
   if (!q.data) return <Skeleton lines={4} />;
   const items = q.data.items.filter((o) => o.type === "EXPENSE" && !o.paid && !o.skipped);
-  if (!items.length) return <p className="py-6 text-center text-sm text-ink-soft">🎉 Tudo pago neste mês!</p>;
+  if (!items.length) return <p className="flex items-center justify-center gap-1.5 py-6 text-sm text-ink-soft"><AppIcon icon="ph:confetti-duotone" size={18} className="text-brand-600" /> Tudo pago neste mês!</p>;
   return (
     <ul className="divide-y divide-brand-950/[0.05]">
       {items.slice(0, 8).map((o) => (
@@ -350,7 +351,7 @@ export function UpcomingWidget({ month }: { month: string }) {
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-semibold">{o.description} {o.installmentLabel && <span className="text-ink-faint">{o.installmentLabel}</span>}</p>
             <p className="truncate text-[11px] text-ink-faint">
-              dia {o.day} · {o.card ? `💳 ${o.card.name}` : o.paymentMethod ? `${METHOD_ICON[o.paymentMethod]} ${METHOD_LABEL[o.paymentMethod]}` : ""}
+              dia {o.day} · <PaymentTag card={o.card} method={o.paymentMethod} />
             </p>
           </div>
           <span className="text-sm font-bold tabular">{money(o.amountCents)}</span>

@@ -6,7 +6,8 @@ import { CountUp } from "../components/dash/WidgetView";
 import { Empty, MonthSwitcher, PageLoading, Progress, cx, useMonth } from "../components/ui";
 import { useLayout } from "../layouts/AppLayout";
 import { api } from "../lib/api";
-import { METHOD_ICON, METHOD_LABEL, firstName, money, monthLabel, moneyShort } from "../lib/format";
+import { AppIcon, CategoryIcon, MethodIcon, PaymentTag } from "../components/AppIcon";
+import { METHOD_LABEL, firstName, money, monthLabel, moneyShort } from "../lib/format";
 import { useAction, useMe } from "../lib/queries";
 import type { Dashboard as DashboardData, Occ } from "../lib/types";
 
@@ -38,7 +39,7 @@ export default function Dashboard() {
       ) : isEmpty ? (
         <div className="card">
           <Empty
-            icon="🌱"
+            icon="ph:plant-duotone"
             title="Vamos começar?"
             text="Cadastre os salários e as contas fixas da casa. Com isso já dá para ver quanto sobra este mês e nos próximos."
             action={
@@ -93,7 +94,7 @@ export default function Dashboard() {
                   </div>
                   {phase !== "future" && t.overdueCents > 0 && (
                     <p className="mt-3 rounded-xl bg-amber-400/20 px-3 py-2 text-xs font-semibold text-amber-100">
-                      ⚠️ {money(t.overdueCents)} em contas com data vencida ainda não marcadas como pagas
+                      <AppIcon icon="ph:warning-duotone" size={14} className="mr-1 inline align-[-2px]" />{money(t.overdueCents)} em contas com data vencida ainda não marcadas como pagas
                     </p>
                   )}
                 </>
@@ -119,7 +120,7 @@ export default function Dashboard() {
               {d.byPerson.filter((p) => p.incomeCents || p.expenseCents).map((p) => (
                 <div key={p.id}>
                   <div className="flex items-baseline justify-between">
-                    <p className="text-sm font-semibold">{p.id === "shared" ? "🏠 Casa" : p.name}</p>
+                    <p className="flex items-center gap-1.5 text-sm font-semibold">{p.id === "shared" && <AppIcon icon="ph:house-line-duotone" size={15} className="text-ink-faint" />}{p.id === "shared" ? "Casa" : p.name}</p>
                     <p className={cx("text-sm font-bold tabular", p.netCents < 0 ? "text-rose-600" : "text-emerald-600")}>{money(p.netCents)}</p>
                   </div>
                   <p className="text-xs text-ink-faint tabular">
@@ -196,7 +197,7 @@ export default function Dashboard() {
                     return (
                       <li key={c.name} className="text-sm">
                         <div className="flex items-center gap-2">
-                          <span className="text-base leading-none">{c.icon}</span>
+                          <CategoryIcon category={c} size="sm" />
                           <span className="min-w-0 flex-1 truncate font-medium" title={c.name}>{c.name}</span>
                           <span className="font-semibold tabular">{money(c.totalCents)}</span>
                         </div>
@@ -214,7 +215,7 @@ export default function Dashboard() {
                   <div className="mt-4 flex flex-wrap gap-1.5 border-t border-brand-950/[0.06] pt-3">
                     {d.byMethod.map((m) => (
                       <span key={m.method} className="chip bg-brand-50 text-brand-800">
-                        {METHOD_ICON[m.method as keyof typeof METHOD_ICON]} {METHOD_LABEL[m.method as keyof typeof METHOD_LABEL]} {moneyShort(m.totalCents)}
+                        <MethodIcon method={m.method as keyof typeof METHOD_LABEL} size={12} /> {METHOD_LABEL[m.method as keyof typeof METHOD_LABEL]} {moneyShort(m.totalCents)}
                       </span>
                     ))}
                   </div>
@@ -230,7 +231,7 @@ export default function Dashboard() {
               <Link to="/app/lancamentos" className="flex items-center text-xs font-semibold text-brand-600">Ver tudo <ChevronRight size={14} /></Link>
             </div>
             {d.upcoming.length === 0 ? (
-              <p className="py-4 text-center text-sm text-ink-soft">🎉 Tudo pago neste mês!</p>
+              <p className="flex items-center justify-center gap-1.5 py-4 text-sm text-ink-soft"><AppIcon icon="ph:confetti-duotone" size={18} className="text-brand-600" /> Tudo pago neste mês!</p>
             ) : (
               <ul className="divide-y divide-brand-950/[0.05]">
                 {d.upcoming.map((o) => (
@@ -247,7 +248,7 @@ export default function Dashboard() {
                         {o.description} {o.installmentLabel && <span className="text-ink-faint">{o.installmentLabel}</span>}
                       </p>
                       <p className="text-xs text-ink-faint">
-                        dia {o.day} · {o.card ? `💳 ${o.card.name}` : o.paymentMethod ? `${METHOD_ICON[o.paymentMethod]} ${METHOD_LABEL[o.paymentMethod]}` : ""}
+                        dia {o.day} · <PaymentTag card={o.card} method={o.paymentMethod} />
                         {o.amountMode === "PERCENT" && ` · ${(o.percentBp ?? 0) / 100}% da renda`}
                       </p>
                     </div>

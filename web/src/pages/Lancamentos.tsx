@@ -5,7 +5,8 @@ import { Empty, Field, MenuItem, Modal, MonthSwitcher, MoneyInput, PageLoading, 
 import { InvoiceModal } from "../components/InvoiceModal";
 import { useLayout } from "../layouts/AppLayout";
 import { api } from "../lib/api";
-import { METHOD_ICON, METHOD_LABEL, firstName, money, monthLabel } from "../lib/format";
+import { AppIcon, CategoryIcon, PaymentTag } from "../components/AppIcon";
+import { firstName, money, monthLabel } from "../lib/format";
 import { useAction, useMe } from "../lib/queries";
 import type { Occ, Totals, Transaction } from "../lib/types";
 import { moneyRule, useFormValidation } from "../lib/validation";
@@ -112,10 +113,10 @@ function MonthView() {
       {items.length === 0 ? (
         <div className="card">
           {filtered ? (
-            <Empty icon="🔎" title="Nada encontrado" text="Nenhum lançamento bate com os filtros."
+            <Empty icon="ph:magnifying-glass-duotone" title="Nada encontrado" text="Nenhum lançamento bate com os filtros."
               action={<button className="btn-outline" onClick={() => setFilter({ q: "", type: "ALL", status: "ALL", person: "" })}>Limpar filtros</button>} />
           ) : (
-            <Empty icon="🗓️" title={`Nada em ${monthLabel(month)}`} text="Adicione salários, contas e compras deste mês."
+            <Empty icon="ph:calendar-blank-duotone" title={`Nada em ${monthLabel(month)}`} text="Adicione salários, contas e compras deste mês."
               action={<button className="btn-primary" onClick={() => openTx()}><Plus size={16} /> Novo lançamento</button>} />
           )}
         </div>
@@ -227,7 +228,7 @@ function InvoiceRow({ g, today, onOpen, onPay }: { g: InvoiceGroup; today: strin
       >
         <Check size={14} strokeWidth={3} />
       </button>
-      <div className="grid h-9 w-9 shrink-0 place-items-center rounded-xl text-base text-white" style={{ background: g.card.color }}>💳</div>
+      <div className="grid h-9 w-9 shrink-0 place-items-center rounded-xl text-white" style={{ background: g.card.color }}><AppIcon icon="ph:credit-card-duotone" size={19} /></div>
       <button className="min-w-0 flex-1 text-left" onClick={onOpen} aria-label={`Ver fatura ${g.card.name}`}>
         <p className={cx("truncate text-sm font-semibold", g.paid && "text-ink-soft line-through decoration-ink-faint/50")}>
           Fatura {g.card.name}
@@ -239,9 +240,9 @@ function InvoiceRow({ g, today, onOpen, onPay }: { g: InvoiceGroup; today: strin
           {!g.paid && g.paidCount > 0 && ` · ${g.paidCount} de ${g.items.length} pagas`}
         </p>
         {!g.paid && g.dueDate > today && (
-          <span className="chip mt-1 bg-sky-50 text-sky-700">🗓️ agendado · {new Date(`${g.dueDate}T12:00:00`).toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })}</span>
+          <span className="chip mt-1 bg-sky-50 text-sky-700"><AppIcon icon="ph:calendar-dots-duotone" size={12} /> agendado · {new Date(`${g.dueDate}T12:00:00`).toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })}</span>
         )}
-        {!g.paid && g.dueDate < today && <span className="chip mt-1 bg-amber-50 text-amber-700">⚠️ vencido</span>}
+        {!g.paid && g.dueDate < today && <span className="chip mt-1 bg-amber-50 text-amber-700"><AppIcon icon="ph:warning-duotone" size={12} /> vencido</span>}
       </button>
       <p className="text-right text-sm font-bold tabular">− {money(g.total)}</p>
       <button className="btn-ghost !p-1.5" onClick={onOpen} aria-label={`Detalhes da fatura ${g.card.name}`}><ChevronRight size={16} /></button>
@@ -269,9 +270,7 @@ function OccRow({ o, today, onToggle, onEdit, onAdjust, onSkip }: {
       >
         <Check size={14} strokeWidth={3} />
       </button>
-      <div className="grid h-9 w-9 shrink-0 place-items-center rounded-xl text-base" style={{ background: `${o.category?.color ?? "#94A3B8"}1F` }}>
-        {o.category?.icon ?? (income ? "💰" : "📦")}
-      </div>
+      <CategoryIcon category={o.category} fallback={income ? "ph:money-duotone" : "ph:package-duotone"} />
       <button className="min-w-0 flex-1 text-left" onClick={() => onEdit(o)}>
         <p className={cx("truncate text-sm font-semibold", o.paid && "text-ink-soft line-through decoration-ink-faint/50", o.skipped && "line-through")}>
           {o.description}
@@ -281,17 +280,18 @@ function OccRow({ o, today, onToggle, onEdit, onAdjust, onSkip }: {
         <p className="truncate text-xs text-ink-faint">
           dia {o.day}
           {o.person ? ` · ${firstName(o.person.name)}` : " · Casa"}
-          {o.card ? ` · 💳 ${o.card.name}` : o.paymentMethod ? ` · ${METHOD_ICON[o.paymentMethod]} ${METHOD_LABEL[o.paymentMethod]}` : ""}
+          {(o.card || o.paymentMethod) && <> · <PaymentTag card={o.card} method={o.paymentMethod} /></>}
+          {o.category?.parent && ` · ${o.category.parent.name} › ${o.category.name}`}
           {o.amountMode === "PERCENT" && ` · ${(o.percentBp ?? 0) / 100}% da renda`}
           {o.skipped && " · pulado neste mês"}
         </p>
         {!o.paid && !o.skipped && o.dueDate > today && (
           <span className="chip mt-1 bg-sky-50 text-sky-700" title="Ainda não entra no saldo de hoje">
-            🗓️ {income ? "a receber" : "agendado"} · {new Date(`${o.dueDate}T12:00:00`).toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })}
+            <AppIcon icon="ph:calendar-dots-duotone" size={12} /> {income ? "a receber" : "agendado"} · {new Date(`${o.dueDate}T12:00:00`).toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })}
           </span>
         )}
         {!o.paid && !o.skipped && !income && o.dueDate < today && (
-          <span className="chip mt-1 bg-amber-50 text-amber-700" title="A data passou e não foi marcado como pago">⚠️ vencido</span>
+          <span className="chip mt-1 bg-amber-50 text-amber-700" title="A data passou e não foi marcado como pago"><AppIcon icon="ph:warning-duotone" size={12} /> vencido</span>
         )}
       </button>
       <div className="text-right">
@@ -368,7 +368,7 @@ function FixedView() {
   if (q.data.length === 0)
     return (
       <div className="card">
-        <Empty icon="🔁" title="Nenhum lançamento fixo" text="Salários, contas mensais, assinaturas, financiamentos e compras parceladas aparecem aqui."
+        <Empty icon="ph:repeat-duotone" title="Nenhum lançamento fixo" text="Salários, contas mensais, assinaturas, financiamentos e compras parceladas aparecem aqui."
           action={<button className="btn-primary" onClick={() => openTx({ recurrence: "MONTHLY" })}><Plus size={16} /> Adicionar fixo</button>} />
       </div>
     );
@@ -387,15 +387,13 @@ function FixedView() {
             {list.map((t) => (
               <li key={t.id}>
                 <button className="flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-brand-50/40" onClick={() => openTx({ id: t.id })}>
-                  <div className="grid h-9 w-9 shrink-0 place-items-center rounded-xl text-base" style={{ background: `${t.category?.color ?? "#94A3B8"}1F` }}>
-                    {t.category?.icon ?? "📦"}
-                  </div>
+                  <CategoryIcon category={t.category} />
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-semibold">{t.description}</p>
                     <p className="truncate text-xs text-ink-faint">
                       {recurrenceText(t)} · desde {new Date(`${t.date}T00:00:00`).toLocaleDateString("pt-BR", { month: "short", year: "numeric" })}
                       {t.person ? ` · ${firstName(t.person.name)}` : " · Casa"}
-                      {t.card && ` · 💳 ${t.card.name}`}
+                      {t.card && <> · <PaymentTag card={t.card} /></>}
                     </p>
                   </div>
                   <p className={cx("text-sm font-bold tabular", t.type === "INCOME" && "text-emerald-600")}>

@@ -4,8 +4,10 @@ import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { Empty, Field, Modal, MoneyInput, PageHeader, PageLoading, Segmented, cx } from "../components/ui";
 import { api } from "../lib/api";
-import { METHOD_ICON, METHOD_LABEL, currentMonth, money, monthLabel, today } from "../lib/format";
-import { useAction, useCards, useCategories, useMe } from "../lib/queries";
+import { METHOD_LABEL, currentMonth, money, monthLabel, today } from "../lib/format";
+import { MethodIcon } from "../components/AppIcon";
+import { CategoryPicker } from "../components/CategoryPicker";
+import { useAction, useCards, useMe } from "../lib/queries";
 import type { CardSummary, PaymentMethod, ShoppingItem } from "../lib/types";
 import { intRange, moneyRule, useFormValidation, validDate, type Rules } from "../lib/validation";
 
@@ -44,7 +46,7 @@ export default function Compras() {
             )}
           </div>
           <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-ink-soft">
-            <span className="chip bg-brand-50 text-brand-700">{METHOD_ICON[i.paymentMethod]} {METHOD_LABEL[i.paymentMethod]}{i.card ? ` · ${i.card.name}` : ""}</span>
+            <span className="chip bg-brand-50 text-brand-700"><MethodIcon method={i.paymentMethod} size={12} /> {METHOD_LABEL[i.paymentMethod]}{i.card ? ` · ${i.card.name}` : ""}</span>
             {i.installments > 1 && <span className="tabular">{i.installments}x de {money(Math.round(i.estimatedCents / i.installments))}</span>}
             {i.plannedMonth && <span>· {done ? "planejado p/" : "para"} <span>{monthLabel(i.plannedMonth, { short: true })}</span></span>}
           </div>
@@ -90,7 +92,7 @@ export default function Compras() {
 
       {items.data.length === 0 ? (
         <div className="card">
-          <Empty icon="🛍️" title="Sua lista está vazia"
+          <Empty icon="ph:shopping-bag-duotone" title="Sua lista está vazia"
             text="Anote o que vocês querem comprar — a pia, os móveis, o cooktop — com valor e forma de pagamento."
             action={<button className="btn-primary" onClick={() => setEditing({ open: true })}><Plus size={18} /> Adicionar primeiro item</button>} />
         </div>
@@ -101,7 +103,7 @@ export default function Compras() {
             {planned.length ? (
               <ul className="card divide-y divide-brand-950/[0.06] overflow-hidden">{planned.map(row)}</ul>
             ) : (
-              <div className="card"><Empty icon="🎉" title="Tudo comprado!" /></div>
+              <div className="card"><Empty icon="ph:confetti-duotone" title="Tudo comprado!" /></div>
             )}
             <p className="mt-2 text-xs text-ink-faint">
               Itens com mês planejado entram na <Link to="/app/previsao" className="font-semibold text-brand-600 hover:underline">Previsão</Link> quando
@@ -227,7 +229,7 @@ function ItemForm({ item, onDone }: { item?: ShoppingItem; onDone: () => void })
             <button key={m} type="button" onClick={() => set("paymentMethod", m)}
               className={cx("rounded-xl border px-2 py-2 text-xs font-semibold transition",
                 f.paymentMethod === m ? "border-brand-500 bg-brand-50 text-brand-700" : "border-brand-950/10 text-ink-soft hover:border-brand-300")}>
-              {METHOD_ICON[m]} {METHOD_LABEL[m]}
+              <span className="inline-flex items-center justify-center gap-1.5"><MethodIcon method={m} size={15} /> {METHOD_LABEL[m]}</span>
             </button>
           ))}
         </div>
@@ -245,7 +247,7 @@ function ItemForm({ item, onDone }: { item?: ShoppingItem; onDone: () => void })
               <Field label="Cartão" error={v.error("cardId")}>
                 <select className="field" {...v.bind("cardId")} value={f.cardId ?? ""} onChange={(e) => set("cardId", e.target.value || null)}>
                   <option value="" disabled>Escolha o cartão</option>
-                  {activeCards.map((c) => <option key={c.id} value={c.id}>💳 {c.name}</option>)}
+                  {activeCards.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
                 </select>
               </Field>
               {card && (
@@ -253,7 +255,7 @@ function ItemForm({ item, onDone }: { item?: ShoppingItem; onDone: () => void })
                   Disponível em <span>{monthLabel(refMonth, { year: false })}</span>: <b>{money(card.availableCents)}</b> de {money(card.limitCents)}
                   {f.estimatedCents > 0 && (
                     <span className={cx("mt-0.5 block", exceeds && "font-bold text-rose-600")}>
-                      {exceeds ? "⚠️ Essa compra passa do limite disponível" : `Depois da compra: ${money(card.availableCents - f.estimatedCents)}`}
+                      {exceeds ? "Atenção: essa compra passa do limite disponível" : `Depois da compra: ${money(card.availableCents - f.estimatedCents)}`}
                     </span>
                   )}
                 </p>
@@ -296,7 +298,6 @@ type BuyState = { date: string; amountCents: number; categoryId: string | null; 
 
 function BuyForm({ item, onDone }: { item: ShoppingItem; onDone: () => void }) {
   const { data: me } = useMe();
-  const { data: categories = [] } = useCategories();
   const [f, setF] = useState<BuyState>({ date: today(), amountCents: item.estimatedCents, categoryId: null, personId: null });
   const set = <K extends keyof BuyState>(k: K, val: BuyState[K]) => setF((s) => ({ ...s, [k]: val }));
   const rules = useMemo<Rules<BuyState>>(() => ({ date: validDate, amountCents: moneyRule("quanto pagou") }), []);
@@ -309,7 +310,7 @@ function BuyForm({ item, onDone }: { item: ShoppingItem; onDone: () => void }) {
       <div className="rounded-2xl bg-brand-50 p-3 text-sm text-brand-900">
         <p className="flex items-center gap-2 font-bold"><ShoppingCart size={16} /> {item.name}</p>
         <p className="mt-0.5 text-xs">
-          {METHOD_ICON[item.paymentMethod]} {METHOD_LABEL[item.paymentMethod]}{item.card ? ` · ${item.card.name}` : ""}
+          <MethodIcon method={item.paymentMethod} size={13} /> {METHOD_LABEL[item.paymentMethod]}{item.card ? ` · ${item.card.name}` : ""}
           {item.installments > 1 ? ` · ${item.installments}x` : ""} — vira um gasto em Lançamentos.
         </p>
       </div>
@@ -325,14 +326,11 @@ function BuyForm({ item, onDone }: { item: ShoppingItem; onDone: () => void }) {
       </div>
       <div className="grid grid-cols-2 gap-3">
         <Field label="Categoria">
-          <select className="field" value={f.categoryId ?? ""} onChange={(e) => set("categoryId", e.target.value || null)}>
-            <option value="">Sem categoria</option>
-            {categories.filter((c) => c.kind === "EXPENSE").map((c) => <option key={c.id} value={c.id}>{c.icon} {c.name}</option>)}
-          </select>
+          <CategoryPicker kind="EXPENSE" value={f.categoryId} onChange={(id) => set("categoryId", id)} />
         </Field>
         <Field label="De quem é o gasto">
           <select className="field" value={f.personId ?? ""} onChange={(e) => set("personId", e.target.value || null)}>
-            <option value="">🏠 Casa (compartilhado)</option>
+            <option value="">Casa (compartilhado)</option>
             {me?.members.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
           </select>
         </Field>

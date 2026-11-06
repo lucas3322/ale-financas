@@ -11,7 +11,9 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tansta
 import { Check, Copy, GripVertical, LayoutGrid, MoreHorizontal, Pencil, Plus, Trash2 } from "lucide-react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { useEffect, useMemo, useState } from "react";
+import { AppIcon } from "../components/AppIcon";
 import { blankWidget, WidgetBuilder } from "../components/dash/WidgetBuilder";
+import { DASH_ICONS } from "../lib/icons/catalog";
 import { CardsWidget, Skeleton, UpcomingWidget, WidgetChart } from "../components/dash/WidgetView";
 import { Empty, Field, MenuItem, Modal, MonthSwitcher, PageLoading, Popover, cx, useMonth, useToast } from "../components/ui";
 import {
@@ -200,7 +202,7 @@ function DashTabs({ list, activeId, onSelect, onNew, onEdit }: {
                 <motion.span layoutId="dash-tab" className="absolute inset-0 rounded-xl bg-white shadow-sm"
                   transition={reduce ? { duration: 0 } : SPRING} />
               )}
-              <span className="relative">{d.icon}</span>
+              <AppIcon icon={d.icon} size={16} className="relative" />
               <span className="relative">{d.name}</span>
               {on && <MoreHorizontal size={14} className="relative text-ink-faint" />}
             </button>
@@ -253,7 +255,7 @@ function Board({ dash, month, editing, onReorder, onEdit, onRemove, onDuplicate,
   if (dash.widgets.length === 0) {
     return (
       <div className="card">
-        <Empty icon="🧩" title="Dashboard vazio" text="Adicione widgets: números, pizzas, barras, evolução, metas… e cruze os dados do jeito que quiser."
+        <Empty icon="ph:puzzle-piece-duotone" title="Dashboard vazio" text="Adicione widgets: números, pizzas, barras, evolução, metas… e cruze os dados do jeito que quiser."
           action={<button className="btn-primary" onClick={onAdd}><Plus size={16} /> Adicionar widget</button>} />
       </div>
     );
@@ -413,7 +415,7 @@ function TemplateGallery({ onCreated }: { onCreated: (id: string) => void }) {
   });
   const options = [
     ...TEMPLATES.map((t) => ({ key: t.key, name: t.name, icon: t.icon, description: t.description, build: t.build })),
-    { key: "blank", name: "Em branco", icon: "🧩", description: "Comece do zero e monte do seu jeito", build: () => [] as Widget[] },
+    { key: "blank", name: "Em branco", icon: "ph:puzzle-piece-duotone", description: "Comece do zero e monte do seu jeito", build: () => [] as Widget[] },
   ];
   return (
     <div>
@@ -432,7 +434,7 @@ function TemplateGallery({ onCreated }: { onCreated: (id: string) => void }) {
             onClick={() => create.mutate({ name: t.name, icon: t.icon, widgets: t.build() })}
             className="card group p-5 text-left transition-[box-shadow,border-color] duration-200 hover:border-brand-300 hover:shadow-[0_12px_32px_-16px_rgba(130,10,209,.45)] active:scale-[.99] disabled:opacity-60"
           >
-            <span className="mb-3 grid h-11 w-11 place-items-center rounded-2xl bg-brand-50 text-xl">{t.icon}</span>
+            <span className="mb-3 grid h-11 w-11 place-items-center rounded-2xl bg-brand-50 text-brand-600"><AppIcon icon={t.icon} size={24} /></span>
             <p className="font-bold">{t.name}</p>
             <p className="mt-0.5 text-sm text-ink-soft">{t.description}</p>
           </motion.button>
@@ -443,12 +445,12 @@ function TemplateGallery({ onCreated }: { onCreated: (id: string) => void }) {
 }
 
 /* ---------- Criar / renomear / excluir dashboard ---------- */
-const ICONS = ["📊", "✨", "💳", "💜", "🏠", "🛒", "📈", "🎯", "🐷", "🧾", "🚗", "🎓"];
+const ICONS = DASH_ICONS;
 
 function DashModal({ mode, dash, onClose, onDone }: { mode: "create" | "edit"; dash?: DashboardDef; onClose: () => void; onDone: (id?: string) => void }) {
   const qc = useQueryClient();
   const toast = useToast();
-  const [f, setF] = useState({ name: dash?.name ?? "", icon: dash?.icon ?? "📊", template: "blank" });
+  const [f, setF] = useState({ name: dash?.name ?? "", icon: dash?.icon ?? DASH_ICONS[0], template: "blank" });
   const v = useFormValidation(f, {
     name: (x) => required("Dê um nome ao dashboard")(x) || (x.length > 40 ? "Máximo de 40 caracteres" : null),
   });
@@ -489,7 +491,7 @@ function DashModal({ mode, dash, onClose, onDone }: { mode: "create" | "edit"; d
               <button key={i} type="button" onClick={() => setF({ ...f, icon: i })} aria-pressed={f.icon === i}
                 className={cx("grid h-10 w-10 place-items-center rounded-xl text-lg transition-colors duration-150",
                   f.icon === i ? "bg-brand-100 ring-2 ring-brand-500" : "bg-brand-950/[0.04] hover:bg-brand-50")}>
-                {i}
+                <AppIcon icon={i} size={20} className="text-brand-700" />
               </button>
             ))}
           </div>
@@ -498,11 +500,11 @@ function DashModal({ mode, dash, onClose, onDone }: { mode: "create" | "edit"; d
           <div>
             <span className="label">Começar com</span>
             <div className="grid gap-2 sm:grid-cols-2">
-              {[{ key: "blank", name: "Em branco", icon: "🧩" }, ...TEMPLATES].map((t) => (
+              {[{ key: "blank", name: "Em branco", icon: "ph:puzzle-piece-duotone" }, ...TEMPLATES].map((t) => (
                 <button key={t.key} type="button" onClick={() => setF({ ...f, template: t.key })} aria-pressed={f.template === t.key}
                   className={cx("flex items-center gap-2 rounded-xl border px-3 py-2.5 text-left text-sm font-semibold transition-colors duration-150",
                     f.template === t.key ? "border-brand-500 bg-brand-50 text-brand-700" : "border-brand-950/10 hover:border-brand-300")}>
-                  <span>{t.icon}</span> {t.name}
+                  <AppIcon icon={t.icon} size={17} /> {t.name}
                 </button>
               ))}
             </div>

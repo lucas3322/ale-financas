@@ -5,7 +5,7 @@ export async function loadGroup(groupId: string) {
   const [txs, states, cards, members] = await Promise.all([
     prisma.transaction.findMany({
       where: { groupId },
-      include: { card: true, category: true, person: { select: { id: true, name: true } } },
+      include: { card: true, category: { include: { parent: true } }, person: { select: { id: true, name: true } } },
     }),
     prisma.txOccurrence.findMany({ where: { transaction: { groupId } } }),
     prisma.card.findMany({ where: { groupId }, orderBy: { createdAt: "asc" } }),
@@ -42,7 +42,17 @@ export function serializeOcc(o: Occurrence) {
     percentBase: t.percentBase,
     paymentMethod: t.paymentMethod,
     date: t.date.toISOString().slice(0, 10),
-    category: t.category ? { id: t.category.id, name: t.category.name, color: t.category.color, icon: t.category.icon } : null,
+    category: t.category
+      ? {
+          id: t.category.id,
+          name: t.category.name,
+          color: t.category.color,
+          icon: t.category.icon,
+          parent: t.category.parent
+            ? { id: t.category.parent.id, name: t.category.parent.name, color: t.category.parent.color, icon: t.category.parent.icon }
+            : null,
+        }
+      : null,
     person: t.person ? { id: t.person.id, name: t.person.name } : null,
     card: t.card ? { id: t.card.id, name: t.card.name, color: t.card.color } : null,
   };

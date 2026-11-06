@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { CheckCircle2, Pencil, Plus } from "lucide-react";
 import { useState } from "react";
 import { Empty, Field, HScroll, Modal, MonthSwitcher, MoneyInput, PageLoading, Progress, cx, useMonth } from "../components/ui";
+import { CategoryIcon } from "../components/AppIcon";
 import { InvoiceModal } from "../components/InvoiceModal";
 import { useLayout } from "../layouts/AppLayout";
 import { api } from "../lib/api";
@@ -42,7 +43,7 @@ export default function Cartoes() {
         <PageLoading />
       ) : q.data.length === 0 ? (
         <div className="card">
-          <Empty icon="💳" title="Nenhum cartão cadastrado" text="Cadastre o limite, o dia de fechamento e o de vencimento. Compras no cartão já comprometem o limite no mês da compra."
+          <Empty icon="ph:credit-card-duotone" title="Nenhum cartão cadastrado" text="Cadastre o limite, o dia de fechamento e o de vencimento. Compras no cartão já comprometem o limite no mês da compra."
             action={<button className="btn-primary" onClick={() => setEdit({})}><Plus size={16} /> Cadastrar cartão</button>} />
         </div>
       ) : (
@@ -102,7 +103,7 @@ export default function Cartoes() {
                         <li key={o.transactionId}>
                           <button className="flex w-full items-center gap-2 py-2 text-left text-sm"
                             onClick={() => openTx({ id: o.transactionId, fromMonth: o.month, recurrence: o.recurrence })}>
-                            <span className="w-5 text-center">{o.category?.icon ?? "🛍️"}</span>
+                            <CategoryIcon category={o.category} size="sm" fallback="ph:shopping-bag-duotone" />
                             <span className={cx("min-w-0 flex-1 truncate", o.paid && "text-ink-faint line-through")}>
                               {o.description} {o.installmentLabel && <span className="text-ink-faint">{o.installmentLabel}</span>}
                             </span>
