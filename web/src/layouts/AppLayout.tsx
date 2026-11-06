@@ -4,6 +4,7 @@ import {
 } from "lucide-react";
 import { Suspense, useState } from "react";
 import { NavLink, Outlet, useLocation, useNavigate, useOutletContext } from "react-router-dom";
+import { ErrorBoundary } from "../components/ErrorBoundary";
 import { TransactionModal, type TxDraft } from "../components/TransactionForm";
 import { Avatar, MenuItem, PageLoading, Popover, cx, useMonth } from "../components/ui";
 import { api } from "../lib/api";
@@ -125,7 +126,7 @@ export default function AppLayout() {
 
       <main className="mx-auto max-w-6xl px-4 pb-28 pt-5 sm:px-6 lg:px-8 lg:pb-12 lg:pt-8">
         <p className="mb-1 text-sm text-ink-soft lg:hidden">Olá, {firstName(me.user.name)} 👋</p>
-        <Suspense fallback={<PageLoading />}><Outlet context={ctx} /></Suspense>
+        <ErrorBoundary resetKey={pathname}><Suspense fallback={<PageLoading />}><Outlet context={ctx} /></Suspense></ErrorBoundary>
         {pathname === "/app/grupo" && (
           <button onClick={logout} className="btn-outline mt-6 w-full text-rose-600 lg:hidden">
             <LogOut size={16} /> Sair da conta

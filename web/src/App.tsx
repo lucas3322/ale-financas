@@ -5,19 +5,20 @@ import AppLayout from "./layouts/AppLayout";
 import { PageLoading, useMonth } from "./components/ui";
 import { currentMonth } from "./lib/format";
 import { SESSION_EXPIRED_EVENT } from "./lib/api";
+import { lazyImport } from "./lib/reload";
 import { useMe } from "./lib/queries";
 import Landing from "./pages/Landing";
 import { Login, Register } from "./pages/Auth";
 
 // Telas internas carregadas sob demanda: a landing não baixa gráficos nem formulários do app.
-const Dashboard = lazy(() => import("./pages/Dashboard"));
-const Lancamentos = lazy(() => import("./pages/Lancamentos"));
-const Cartoes = lazy(() => import("./pages/Cartoes"));
-const Compras = lazy(() => import("./pages/Compras"));
-const Previsao = lazy(() => import("./pages/Previsao"));
-const Dashboards = lazy(() => import("./pages/Dashboards"));
-const Categorias = lazy(() => import("./pages/Categorias"));
-const Grupo = lazy(() => import("./pages/Grupo"));
+const Dashboard = lazy(lazyImport(() => import("./pages/Dashboard")));
+const Lancamentos = lazy(lazyImport(() => import("./pages/Lancamentos")));
+const Cartoes = lazy(lazyImport(() => import("./pages/Cartoes")));
+const Compras = lazy(lazyImport(() => import("./pages/Compras")));
+const Previsao = lazy(lazyImport(() => import("./pages/Previsao")));
+const Dashboards = lazy(lazyImport(() => import("./pages/Dashboards")));
+const Categorias = lazy(lazyImport(() => import("./pages/Categorias")));
+const Grupo = lazy(lazyImport(() => import("./pages/Grupo")));
 
 function Private({ children }: { children: JSX.Element }) {
   const me = useMe();

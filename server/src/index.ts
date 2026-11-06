@@ -71,10 +71,25 @@ await app.register(
 // Em produção o mesmo container serve o frontend (build do Vite).
 const webDir = process.env.WEB_DIR ?? join(dirname(fileURLToPath(import.meta.url)), "../../web/dist");
 if (existsSync(webDir)) {
-  await app.register(fastifyStatic, { root: webDir, wildcard: false });
+  await app.register(fastifyStatic, {
+    root: webDir,
+    wildcard: false,
+    cacheControl: false, // o cabeçalho é definido abaixo, por tipo de arquivo
+    // Arquivos com hash no nome nunca mudam: cache longo. O index.html sempre revalida,
+    // para que um recarregamento já pegue a versão nova depois de um deploy.
+    setHeaders: (res, path) => {
+      res.setHeader("Cache-Control", /[\\/]assets[\\/]/.test(path) ? "public, max-age=31536000, immutable" : "no-cache");
+    },
+  });
   app.setNotFoundHandler((req, reply) => {
     if (req.url.startsWith("/api/")) return reply.status(404).send({ error: "Rota não encontrada" });
-    return reply.sendFile("index.html");
+    // Arquivo de build que não existe (ex.: aba aberta com a versão antiga depois de um deploy):
+    // 404 de verdade, e não o index.html — senão o navegador tenta executar HTML como JS e a tela quebra.
+    if (req.url.startsWith("/assets/") || /\.(js|css|map|json|png|svg|ico|woff2?)(\?|$)/.test(req.url)) {
+      return reply.status(404).header("Cache-Control", "no-store").send("Not found");
+    }
+    // cacheControl: false — senão o @fastify/static sobrescreve com "max-age=0" e alguns navegadores reaproveitam a versão velha.
+    return reply.header("Cache-Control", "no-cache").sendFile("index.html", { cacheControl: false });
   });
 }
 
