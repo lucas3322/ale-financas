@@ -69,7 +69,7 @@ function MonthView() {
               sub={t.scheduledIncomeCents ? `+ ${money(t.scheduledIncomeCents)} a receber` : undefined} />
             <Stat label="Saídas até hoje" value={t.realizedExpenseCents} tone="text-rose-600"
               sub={t.scheduledExpenseCents ? `+ ${money(t.scheduledExpenseCents)} agendado` : undefined} />
-            <Stat label="Sobra até hoje" value={t.realizedNetCents} tone={t.realizedNetCents < 0 ? "text-rose-600" : "text-brand-700"}
+            <Stat label="Saldo de hoje" value={t.realizedNetCents} tone={t.realizedNetCents < 0 ? "text-rose-600" : "text-brand-700"}
               sub={`Previsto no mês: ${money(t.netCents)}`} />
           </>
         ) : (
